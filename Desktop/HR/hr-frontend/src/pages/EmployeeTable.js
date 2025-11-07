@@ -480,13 +480,23 @@ const EmployeeTable = () => {
                 </select>
               </div>
               <button
-                onClick={() => handleExport(selectedMonth, selectedYear, filteredAndSortedEmployees)}
+                onClick={() => handleExport(selectedMonth, selectedYear, sortedEmployees)}
                 className="px-4 py-2 bg-blue-950 text-white rounded hover:bg-blue-900"
+                disabled={loading}
               >
-                Export
+                {loading ? "Loading..." : "Export"}
               </button>
             </div>
           </div>
+
+          {/* Display results info */}
+          {!loading && (
+            <div className="px-6 py-2 bg-gray-50 text-sm text-gray-600">
+              Showing {sortedEmployees.length} of {pagination.totalCount} employees
+              {debouncedSearchTerm && ` (filtered by: "${debouncedSearchTerm}")`}
+            </div>
+          )}
+
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
@@ -530,74 +540,30 @@ const EmployeeTable = () => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {filteredAndSortedEmployees.map((employee, index) => (
-                  <tr
-                    key={employee.employeeId}
-                    className="hover:bg-gray-50 transition-colors duration-200"
-                  >
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">
-                      {index + 1}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {employee.name}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      ₹{employee.base.toLocaleString()}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      ₹{employee.hra.toLocaleString()}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      ₹{employee.conveyance.toLocaleString()}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {editing === index ? (
-                        <div className="flex items-center space-x-2">
-                          <input
-                            type="number"
-                            value={employee.attendanceDays}
-                            onChange={(e) =>
-                              updateEmployee(
-                                index,
-                                "attendanceDays",
-                                e.target.value
-                              )
-                            }
-                            className="w-16 px-2 py-1 border rounded"
-                            min="0"
-                            max={employee.totalDays}
-                          />
-                          <span>/ {employee.totalDays}</span>
-                        </div>
-                      ) : (
-                        `${employee.attendanceDays}/${employee.totalDays}`
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-green-600">
-                      ₹{(employee.netPayable !== null ? employee.netPayable : calculateNetPayable(employee, salaryConfig)).toLocaleString()}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-blue-600">
-                      ₹{(employee.ctc !== null ? employee.ctc : calculateCTC(employee, salaryConfig)).toLocaleString()}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {editing === index ? (
-                        <button
-                          onClick={() => handleSave(index)}
-                          className="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600"
-                        >
-                          Save
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() => handleEdit(index)}
-                          className="px-3 py-1 bg-blue-950 text-white rounded hover:bg-blue-900"
-                        >
-                          {employee.netPayable === null ? "Add Attendance" : "Edit"}
-                        </button>
-                      )}
+                {/* Show loading skeleton when fetching data */}
+                {loading ? (
+                  <LoadingSkeleton />
+                ) : sortedEmployees.length === 0 ? (
+                  <tr>
+                    <td colSpan="9" className="px-6 py-8 text-center text-gray-500">
+                      No employees found. Try adjusting your filters.
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  /* Use memoized EmployeeRow components */
+                  sortedEmployees.map((employee, index) => (
+                    <EmployeeRow
+                      key={employee.employeeId}
+                      employee={employee}
+                      index={index}
+                      editing={editing}
+                      salaryConfig={salaryConfig}
+                      onEdit={handleEdit}
+                      onSave={handleSave}
+                      onUpdateEmployee={updateEmployee}
+                    />
+                  ))
+                )}
               </tbody>
             </table>
           </div>
