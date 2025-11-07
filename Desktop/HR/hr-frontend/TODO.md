@@ -1,5 +1,0 @@
-- [x] Update Home.js to import CalculateEmi component
-- [x] Add modal state (isModalOpen) to Home.js
-- [x] Replace the Link to "/calculate-emi" with a button that opens the modal
-- [x] Add modal JSX structure to render CalculateEmi inside the modal
-- [x] Update App.js to remove the "/calculate-emi" route
