@@ -153,6 +153,13 @@ const employeeSchema = new Schema({
   },
 });
 
+// Add indexes for performance optimization
+employeeSchema.index({ firstName: 'text', lastName: 'text' }); // Text search index
+employeeSchema.index({ email: 1 }, { unique: true }); // Unique index on email
+employeeSchema.index({ eId: 1 }); // Index on employee ID for searching
+employeeSchema.index({ MONGO_DELETED: 1 }); // Index for soft delete queries
+employeeSchema.index({ isActive: 1 }); // Index for active status queries
+
 const Employee = mongoose.model("Employee", employeeSchema, "employee");
 
 export default Employee;

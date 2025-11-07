@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo, useCallback, memo } from "react";
 import { Link } from "react-router-dom";
 import { handleExport } from "../utils/exportUtils";
 import { fetchEmployees, saveSalary, updateSalary } from "../services/employeeTableApi";
@@ -6,53 +6,219 @@ import { fetchSalaryConfig } from "../services/salaryConfigApi";
 import { calculateNetPayable, calculateCTC } from "../utils/calculations";
 import { ChevronLeft } from "lucide-react";
 
+// Loading Skeleton Component
+const LoadingSkeleton = memo(() => {
+  return (
+    <>
+      {[...Array(10)].map((_, index) => (
+        <tr key={index} className="animate-pulse">
+          <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded"></div></td>
+          <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded"></div></td>
+          <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded"></div></td>
+          <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded"></div></td>
+          <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded"></div></td>
+          <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded"></div></td>
+          <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded"></div></td>
+          <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded"></div></td>
+          <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded"></div></td>
+        </tr>
+      ))}
+    </>
+  );
+});
+
+// Memoized Employee Row Component - only re-renders when props change
+const EmployeeRow = memo(({
+  employee,
+  index,
+  editing,
+  salaryConfig,
+  onEdit,
+  onSave,
+  onUpdateEmployee
+}) => {
+  // Memoize calculated values to avoid recalculation on every render
+  const netPayable = useMemo(() => {
+    return employee.netPayable !== null
+      ? employee.netPayable
+      : calculateNetPayable(employee, salaryConfig);
+  }, [employee, salaryConfig]);
+
+  const ctc = useMemo(() => {
+    return employee.ctc !== null
+      ? employee.ctc
+      : calculateCTC(employee, salaryConfig);
+  }, [employee, salaryConfig]);
+
+  return (
+    <tr className="hover:bg-gray-50 transition-colors duration-200">
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">
+        {index + 1}
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+        {employee.name}
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+        ₹{employee.base.toLocaleString()}
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+        ₹{employee.hra.toLocaleString()}
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+        ₹{employee.conveyance.toLocaleString()}
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+        {editing === index ? (
+          <div className="flex items-center space-x-2">
+            <input
+              type="number"
+              value={employee.attendanceDays}
+              onChange={(e) => onUpdateEmployee(index, "attendanceDays", e.target.value)}
+              className="w-16 px-2 py-1 border rounded"
+              min="0"
+              max={employee.totalDays}
+            />
+            <span>/ {employee.totalDays}</span>
+          </div>
+        ) : (
+          `${employee.attendanceDays}/${employee.totalDays}`
+        )}
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-green-600">
+        ₹{netPayable.toLocaleString()}
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-blue-600">
+        ₹{ctc.toLocaleString()}
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+        {editing === index ? (
+          <button
+            onClick={() => onSave(index)}
+            className="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600"
+          >
+            Save
+          </button>
+        ) : (
+          <button
+            onClick={() => onEdit(index)}
+            className="px-3 py-1 bg-blue-950 text-white rounded hover:bg-blue-900"
+          >
+            {employee.netPayable === null ? "Add Attendance" : "Edit"}
+          </button>
+        )}
+      </td>
+    </tr>
+  );
+});
+
 const EmployeeTable = () => {
   const [employees, setEmployees] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState(""); // Debounced search
   const [selectedMonth, setSelectedMonth] = useState("October");
   const [selectedYear, setSelectedYear] = useState("2025");
   const [selectedBranch, setSelectedBranch] = useState("All");
   const [sortBy, setSortBy] = useState(null);
   const [sortOrder, setSortOrder] = useState("asc");
   const [salaryConfig, setSalaryConfig] = useState(null);
+  const [loading, setLoading] = useState(false); // Loading state
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 50,
+    totalPages: 1,
+    totalCount: 0
+  });
 
-  const getDaysInMonth = (monthName, year) => {
+  // Memoize getDaysInMonth function to avoid recreating on every render
+  const getDaysInMonth = useCallback((monthName, year) => {
     const monthIndex = [
       "January", "February", "March", "April", "May", "June",
       "July", "August", "September", "October", "November", "December"
     ].indexOf(monthName);
     return new Date(parseInt(year), monthIndex + 1, 0).getDate();
-  };
+  }, []);
 
+  // Debounced search effect - waits 300ms after user stops typing
   useEffect(() => {
-    fetchEmployeesData();
-    fetchSalaryConfigData();
-  }, [selectedMonth, selectedYear, selectedBranch]);
+    console.log('[Performance] Setting up debounced search...');
+    const timer = setTimeout(() => {
+      console.log('[Performance] Debounced search triggered:', searchTerm);
+      setDebouncedSearchTerm(searchTerm);
+    }, 300); // 300ms delay
 
-  const fetchSalaryConfigData = async () => {
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  // Fetch salary config on mount - uses cache by default (1 hour TTL)
+  useEffect(() => {
+    fetchSalaryConfigData();
+  }, []);
+
+  // Fetch employees when filters change or debounced search changes
+  useEffect(() => {
+    console.log('[Performance] Filters changed, fetching employees...', {
+      month: selectedMonth,
+      year: selectedYear,
+      branch: selectedBranch,
+      search: debouncedSearchTerm
+    });
+    fetchEmployeesData();
+  }, [selectedMonth, selectedYear, selectedBranch, debouncedSearchTerm]);
+
+  // Fetch salary config with caching - memoized with useCallback
+  const fetchSalaryConfigData = useCallback(async () => {
     try {
-      const config = await fetchSalaryConfig();
-      setSalaryConfig(config);
-      console.log("Fetched salary config:", config);
+      console.log('[Performance] Fetching salary config (with cache)...');
+      const { data, error, fromCache } = await fetchSalaryConfig(true); // Use cache
+
+      if (error) {
+        console.error("Error fetching salary config:", error);
+        return;
+      }
+
+      setSalaryConfig(data);
+      console.log('[Performance] Salary config loaded', fromCache ? '(from cache)' : '(from API)');
     } catch (error) {
       console.error("Error fetching salary config:", error);
     }
-  };
+  }, []);
 
-  const fetchEmployeesData = async () => {
+  // Fetch employees with backend filtering - memoized with useCallback
+  const fetchEmployeesData = useCallback(async () => {
     try {
-      const data = await fetchEmployees();
+      setLoading(true);
+      console.log('[Performance] Fetching employees from backend with filters...');
 
-      console.log("Fetched employees:", data);
+      // Use the new API with query parameters (backend filtering)
+      const { data, error, fromCache } = await fetchEmployees({
+        month: selectedMonth,
+        year: parseInt(selectedYear),
+        branch: selectedBranch,
+        search: debouncedSearchTerm,
+        page: pagination.page,
+        limit: pagination.limit,
+        useCache: false // Don't cache employees list as it changes frequently
+      });
 
-      const filtered = data.map((emp) => {
-        const salary = emp.salaries?.find(s => s.month === selectedMonth && s.year === parseInt(selectedYear));
+      if (error) {
+        console.error("Error fetching employees:", error.message);
+        setLoading(false);
+        return;
+      }
+
+      console.log('[Performance] Employees fetched', fromCache ? '(from cache)' : '(from API)');
+      console.log('[Performance] Total count:', data.totalCount, 'Page:', data.page, 'of', data.totalPages);
+
+      // Transform backend data to match component structure
+      const transformed = data.employees.map((emp) => {
+        const salary = emp.salaries && emp.salaries.length > 0 ? emp.salaries[0] : null;
+
         return {
           employeeId: emp._id,
           name: `${emp.firstName || ""} ${emp.lastName || ""}`.trim(),
-          base: emp.baseSalary || 5000,
-          hra: emp.hra || 4000,
-          conveyance: emp.conveyance || 1000,
+          base: parseFloat(emp.baseSalary) || 5000,
+          hra: parseFloat(emp.hra) || 4000,
+          conveyance: parseFloat(emp.conveyance) || 1000,
           attendanceDays: salary ? salary.attendanceDays : 0,
           totalDays: salary ? salary.totalDays : getDaysInMonth(selectedMonth, selectedYear),
           netPayable: salary ? salary.netPayable : null,
@@ -61,11 +227,19 @@ const EmployeeTable = () => {
         };
       });
 
-      setEmployees(filtered);
+      setEmployees(transformed);
+      setPagination({
+        page: data.page,
+        limit: data.limit,
+        totalPages: data.totalPages,
+        totalCount: data.totalCount
+      });
+      setLoading(false);
     } catch (error) {
       console.error("Error fetching employees:", error);
+      setLoading(false);
     }
-  };
+  }, [selectedMonth, selectedYear, selectedBranch, debouncedSearchTerm, pagination.page, pagination.limit, getDaysInMonth]);
 
 
 
