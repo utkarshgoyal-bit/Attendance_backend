@@ -243,24 +243,30 @@ const EmployeeTable = () => {
 
 
 
-  const updateEmployee = (index, field, value) => {
-    const updatedEmployees = [...employees];
-    updatedEmployees[index][field] = field === "attendanceDays" ? parseInt(value) || 0 : parseFloat(value) || 0;
-    setEmployees(updatedEmployees);
-  };
-
+  // State for editing and authentication
   const [editing, setEditing] = useState(null);
   const [authModal, setAuthModal] = useState(false);
   const [authUsername, setAuthUsername] = useState("");
   const [authPassword, setAuthPassword] = useState("");
   const [pendingEditIndex, setPendingEditIndex] = useState(null);
 
-  const handleEdit = (index) => {
+  // Memoized update employee function with useCallback
+  const updateEmployee = useCallback((index, field, value) => {
+    setEmployees(prevEmployees => {
+      const updatedEmployees = [...prevEmployees];
+      updatedEmployees[index][field] = field === "attendanceDays" ? parseInt(value) || 0 : parseFloat(value) || 0;
+      return updatedEmployees;
+    });
+  }, []);
+
+  // Memoized edit handler with useCallback
+  const handleEdit = useCallback((index) => {
     setPendingEditIndex(index);
     setAuthModal(true);
-  };
+  }, []);
 
-  const handleAuthSubmit = () => {
+  // Memoized auth submit with useCallback
+  const handleAuthSubmit = useCallback(() => {
     // Simple authentication check (replace with actual API call if needed)
     if (authUsername === "admin" && authPassword === "password") {
       setEditing(pendingEditIndex);
@@ -271,16 +277,18 @@ const EmployeeTable = () => {
     } else {
       alert("Invalid username or password");
     }
-  };
+  }, [authUsername, authPassword, pendingEditIndex]);
 
-  const handleAuthCancel = () => {
+  // Memoized auth cancel with useCallback
+  const handleAuthCancel = useCallback(() => {
     setAuthModal(false);
     setAuthUsername("");
     setAuthPassword("");
     setPendingEditIndex(null);
-  };
+  }, []);
 
-  const handleSave = async (index) => {
+  // Memoized save handler with useCallback
+  const handleSave = useCallback(async (index) => {
     const emp = employees[index];
     setEditing(null);
 
@@ -294,38 +302,57 @@ const EmployeeTable = () => {
       netPayable: calculateNetPayable(emp, salaryConfig),
       ctc: calculateCTC(emp, salaryConfig),
       month: selectedMonth,
-      year: selectedYear,
+      year: parseInt(selectedYear),
     };
 
     try {
-      let data;
+      console.log('[Performance] Saving salary...');
+      let result;
       if (emp.netPayable === null) {
-        data = await saveSalary(payload);
-        console.log("Salary saved:", data);
+        result = await saveSalary(payload);
+        console.log("Salary saved:", result);
       } else {
         if (emp.salaryId) {
-          data = await updateSalary(emp.salaryId, payload);
-          console.log("Salary updated:", data);
+          result = await updateSalary(emp.salaryId, payload);
+          console.log("Salary updated:", result);
         } else {
           console.error("Salary ID not found for update");
           return;
         }
       }
-      const updatedEmployees = [...employees];
-      updatedEmployees[index].netPayable = payload.netPayable;
-      updatedEmployees[index].ctc = payload.ctc;
-      setEmployees(updatedEmployees);
+
+      if (result.error) {
+        console.error("Error saving salary:", result.error.message);
+        alert(`Failed to save: ${result.error.message}`);
+        return;
+      }
+
+      // Update local state with calculated values
+      setEmployees(prevEmployees => {
+        const updatedEmployees = [...prevEmployees];
+        updatedEmployees[index].netPayable = payload.netPayable;
+        updatedEmployees[index].ctc = payload.ctc;
+        updatedEmployees[index].salaryId = result.data.salary._id;
+        return updatedEmployees;
+      });
+
+      console.log('[Performance] Salary saved successfully');
     } catch (error) {
       console.error("Error saving/updating salary:", error);
+      alert('Failed to save salary. Please try again.');
     }
-  };
+  }, [employees, salaryConfig, selectedMonth, selectedYear]);
 
-  const filteredAndSortedEmployees = employees
-    .filter((emp) => emp.name.toLowerCase().includes(searchTerm.toLowerCase()))
-    .filter((emp) => selectedBranch === "All" || emp.branch === selectedBranch)
-    .sort((a, b) => {
-      if (!sortBy) return 0;
+  // Client-side sorting only (filtering moved to backend)
+  // Memoized to avoid recalculation on every render
+  const sortedEmployees = useMemo(() => {
+    console.log('[Performance] Sorting employees...');
+
+    if (!sortBy) return employees;
+
+    return [...employees].sort((a, b) => {
       let aVal, bVal;
+
       if (sortBy === "name") {
         aVal = a.name.toLowerCase();
         bVal = b.name.toLowerCase();
@@ -336,21 +363,27 @@ const EmployeeTable = () => {
         aVal = a.netPayable !== null ? a.netPayable : calculateNetPayable(a, salaryConfig);
         bVal = b.netPayable !== null ? b.netPayable : calculateNetPayable(b, salaryConfig);
       }
+
       if (sortOrder === "asc") {
         return aVal > bVal ? 1 : -1;
       } else {
         return aVal < bVal ? 1 : -1;
       }
     });
+  }, [employees, sortBy, sortOrder, salaryConfig]);
 
-  const handleSort = (column) => {
-    if (sortBy === column) {
-      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
-    } else {
-      setSortBy(column);
-      setSortOrder("asc");
-    }
-  };
+  // Memoized sort handler with useCallback
+  const handleSort = useCallback((column) => {
+    setSortBy(prevSortBy => {
+      if (prevSortBy === column) {
+        setSortOrder(prevOrder => prevOrder === "asc" ? "desc" : "asc");
+        return prevSortBy;
+      } else {
+        setSortOrder("asc");
+        return column;
+      }
+    });
+  }, []);
 
   const months = [
     "January", "February", "March", "April", "May", "June",
