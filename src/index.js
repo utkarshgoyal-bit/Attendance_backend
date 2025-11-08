@@ -15,7 +15,7 @@ app.use(cors());
 
 connectDB();
 
-aapp.use("/api/employees", employeeRoutes);
+app.use("/api/employees", employeeRoutes);
 app.use("/api/salaries", salaryRoutes);
 app.use("/api/salary-config", salaryConfigRoutes);
 app.use("/api/attendance", attendanceRoutes);  // ← This line must exist
