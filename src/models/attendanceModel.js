@@ -53,7 +53,7 @@ const attendanceSchema = new Schema(
     // Approval details - who approved and when
     approvedBy: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
+      // ref removed to avoid User model registration requirement
     },
 
     approvedAt: {
