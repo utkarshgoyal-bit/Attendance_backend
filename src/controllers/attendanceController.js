@@ -133,10 +133,7 @@ export const getTodayAttendance = async (req, res) => {
         path: 'employeeId',
         select: 'firstName lastName email eId'
       })
-      .populate({
-        path: 'approvedBy',
-        select: 'firstName lastName email'
-      })
+      // Don't populate approvedBy to avoid User model registration issues
       .sort({ checkInTime: 1 }) // Sort by check-in time (ascending)
       .lean();
 
