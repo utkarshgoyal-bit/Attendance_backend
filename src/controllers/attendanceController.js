@@ -14,6 +14,31 @@ export const markAttendance = async (req, res) => {
       });
     }
 
+    // Lookup employee - accept both ObjectId and eId
+    let employee;
+    let actualEmployeeId;
+
+    // Check if it's a valid ObjectId (24 hex characters)
+    const isObjectId = /^[0-9a-fA-F]{24}$/.test(employeeId);
+
+    if (isObjectId) {
+      // It's an ObjectId - use directly
+      employee = await Employee.findById(employeeId);
+      actualEmployeeId = employeeId;
+    } else {
+      // It's an eId - lookup by eId field
+      employee = await Employee.findOne({ eId: employeeId });
+      actualEmployeeId = employee ? employee._id : null;
+    }
+
+    if (!employee) {
+      return res.status(404).json({
+        message: `Employee not found with ID: ${employeeId}`
+      });
+    }
+
+    console.log(`Found employee: ${employee.firstName} ${employee.lastName} (${employee.eId})`);
+
     // Get today's date range (start and end of day)
     const today = new Date();
     const startOfDay = new Date(today.setHours(0, 0, 0, 0));
@@ -21,7 +46,7 @@ export const markAttendance = async (req, res) => {
 
     // Check if attendance already exists for this employee today
     const existingAttendance = await Attendance.findOne({
-      employeeId,
+      employeeId: actualEmployeeId,
       date: { $gte: startOfDay, $lte: endOfDay }
     });
 
@@ -51,7 +76,7 @@ export const markAttendance = async (req, res) => {
 
     // Create new attendance record
     const newAttendance = new Attendance({
-      employeeId,
+      employeeId: actualEmployeeId,
       date: startOfDay,
       checkInTime,
       status: "PENDING",
@@ -62,7 +87,7 @@ export const markAttendance = async (req, res) => {
 
     const savedAttendance = await newAttendance.save();
 
-    console.log(`Attendance marked for employee ${employeeId} at ${checkInTime}`);
+    console.log(`Attendance marked for employee ${employee.firstName} ${employee.lastName} (${employee.eId}) at ${checkInTime}`);
 
     res.status(201).json({
       message: "Attendance marked successfully",
