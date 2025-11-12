@@ -1,5 +1,6 @@
 import Attendance from "../models/attendanceModel.js";
 import Employee from "../models/employeeModel.js";
+import OrganizationConfig from "../models/organizationConfigModel.js";
 
 // FUNCTION 1: Mark Attendance (Check-in)
 // Route: POST /api/attendance/checkin
@@ -62,17 +63,20 @@ export const markAttendance = async (req, res) => {
     const currentHour = checkInTime.getHours();
     const currentMinute = checkInTime.getMinutes();
 
-    // Auto-calculate status based on time
-    let autoStatus;
-    if (currentHour < 10) {
-      autoStatus = "FULL_DAY";
-    } else if (currentHour === 10 && currentMinute === 0) {
-      autoStatus = "FULL_DAY";
-    } else if (currentHour === 10 || (currentHour === 11 && currentMinute === 0)) {
-      autoStatus = "LATE";
-    } else {
-      autoStatus = "HALF_DAY";
+    // ========== USE DYNAMIC CONFIG FOR STATUS CALCULATION ==========
+    // Get org config (use default orgId for now)
+    const orgId = "673db4bb4ea85b50f50f20d4"; // TODO: Get from employee record
+    let config = await OrganizationConfig.findOne({ orgId });
+
+    if (!config) {
+      config = await OrganizationConfig.create({ orgId });
     }
+
+    // Use the config's built-in method to calculate status
+    const autoStatus = config.getAttendanceStatus(checkInTime);
+
+    console.log(`Using config: Full=${config.attendanceTiming.fullDayBefore}, Late=${config.attendanceTiming.lateBefore}, Half=${config.attendanceTiming.halfDayBefore}`);
+    console.log(`Check-in time: ${currentHour}:${currentMinute}, Status: ${autoStatus}`);
 
     // Create new attendance record
     const newAttendance = new Attendance({
@@ -295,15 +299,20 @@ export const getMonthlyAttendance = async (req, res) => {
       }
     });
 
-    // Calculate deductions
-    // 3 LATE = 1 ABSENT
-    const lateDeductions = Math.floor(lateDays / 3);
+    // ========== USE DYNAMIC CONFIG FOR DEDUCTIONS ==========
+    // Get org config for deduction rules
+    const orgId = "673db4bb4ea85b50f50f20d4"; // TODO: Get from employee record
+    let config = await OrganizationConfig.findOne({ orgId });
 
-    // 2 HALF_DAY = 1 ABSENT
-    const halfDayDeductions = Math.floor(halfDays / 2);
+    if (!config) {
+      config = await OrganizationConfig.create({ orgId });
+    }
+
+    // Use config's built-in method to calculate deductions
+    const totalDeductions = config.calculateDeductions(lateDays, halfDays);
 
     // Calculate final attendance
-    const finalAttendance = presentDays - lateDeductions - halfDayDeductions;
+    const finalAttendance = presentDays - totalDeductions;
 
     console.log(`Monthly attendance for employee ${employeeId}: ${finalAttendance}/${totalDays} days`);
 
@@ -315,9 +324,12 @@ export const getMonthlyAttendance = async (req, res) => {
       presentDays,
       lateDays,
       halfDays,
-      lateDeductions,
-      halfDayDeductions,
+      totalDeductions,
       finalAttendance,
+      deductionRules: {
+        lateRule: config.deductions.lateRule,
+        halfDayRule: config.deductions.halfDayRule
+      },
       attendanceRecords
     });
   } catch (error) {
