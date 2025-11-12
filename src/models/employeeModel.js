@@ -28,8 +28,20 @@ const employeeSchema = new Schema({
   designation: {
     type: Types.String,
   },
-   role: {
-},
+  role: {
+    type: Types.String,
+    enum: ['EMPLOYEE', 'MANAGER', 'HR_ADMIN', 'SUPER_ADMIN'],
+    default: 'EMPLOYEE'
+  },
+
+  managerId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Employee'
+  },
+
+  department: {
+    type: Types.String
+  },
 
   sex: {
     type: Types.String,
@@ -159,6 +171,9 @@ employeeSchema.index({ email: 1 }, { unique: true }); // Unique index on email
 employeeSchema.index({ eId: 1 }); // Index on employee ID for searching
 employeeSchema.index({ MONGO_DELETED: 1 }); // Index for soft delete queries
 employeeSchema.index({ isActive: 1 }); // Index for active status queries
+employeeSchema.index({ role: 1 }); // Index for role-based queries
+employeeSchema.index({ managerId: 1 }); // Index for manager hierarchy queries
+employeeSchema.index({ department: 1 }); // Index for department queries
 
 const Employee = mongoose.model("Employee", employeeSchema, "employee");
 

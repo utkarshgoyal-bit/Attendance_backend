@@ -8,24 +8,29 @@ import {
   rejectLeave,
   bulkApproveLeaves
 } from "../controllers/leaveController.js";
+import { requireRole } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
-// Leave application
-router.post("/apply", applyLeave);
+// ========== EMPLOYEE ROUTES ==========
+// Any authenticated employee can apply for leave
+router.post("/apply", requireRole('EMPLOYEE', 'MANAGER', 'HR_ADMIN', 'SUPER_ADMIN'), applyLeave);
 
-// Leave balance
-router.get("/balance/:employeeId", getLeaveBalance);
+// Any authenticated employee can check their leave balance
+router.get("/balance/:employeeId", requireRole('EMPLOYEE', 'MANAGER', 'HR_ADMIN', 'SUPER_ADMIN'), getLeaveBalance);
 
-// Get leaves
-router.get("/", getLeaves); // Supports ?status=PENDING&employeeId=xxx
-router.get("/pending", getPendingLeaves);
+// ========== MANAGER/HR/ADMIN ROUTES ==========
+// View all leaves - managers can see their team, HR/Admin can see all
+router.get("/", requireRole('MANAGER', 'HR_ADMIN', 'SUPER_ADMIN'), getLeaves);
 
-// Approve/Reject
-router.put("/approve/:id", approveLeave);
-router.put("/reject/:id", rejectLeave);
+// View pending leaves - requires manager level or above
+router.get("/pending", requireRole('MANAGER', 'HR_ADMIN', 'SUPER_ADMIN'), getPendingLeaves);
 
-// Bulk operations
-router.post("/bulk-approve", bulkApproveLeaves);
+// Approve/Reject leaves - requires manager level or above
+router.put("/approve/:id", requireRole('MANAGER', 'HR_ADMIN', 'SUPER_ADMIN'), approveLeave);
+router.put("/reject/:id", requireRole('MANAGER', 'HR_ADMIN', 'SUPER_ADMIN'), rejectLeave);
+
+// Bulk operations - requires manager level or above
+router.post("/bulk-approve", requireRole('MANAGER', 'HR_ADMIN', 'SUPER_ADMIN'), bulkApproveLeaves);
 
 export default router;
