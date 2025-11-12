@@ -1,10 +1,11 @@
 import express from "express";
-import { 
-  markAttendance, 
+import {
+  markAttendance,
   getTodayAttendance,
   approveAttendance,
   rejectAttendance,
-  getMonthlyAttendance
+  getMonthlyAttendance,
+  getMonthlyAttendanceSummary
 } from "../controllers/attendanceController.js";
 import { getActiveQR, validateQR } from "../controllers/qrController.js";
 
@@ -18,6 +19,7 @@ router.post("/qr/validate", validateQR);
 router.post("/checkin", markAttendance);
 router.get("/today", getTodayAttendance);
 router.get("/monthly", getMonthlyAttendance);
+router.get("/monthly-summary", getMonthlyAttendanceSummary);
 router.put("/approve/:id", approveAttendance);
 router.put("/reject/:id", rejectAttendance);
 

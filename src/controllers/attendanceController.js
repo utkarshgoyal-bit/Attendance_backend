@@ -340,3 +340,123 @@ export const getMonthlyAttendance = async (req, res) => {
     });
   }
 };
+
+// ========== GET MONTHLY ATTENDANCE SUMMARY WITH DEDUCTIONS ==========
+// Route: GET /api/attendance/monthly-summary?employeeId=xxx&month=November&year=2025
+export const getMonthlyAttendanceSummary = async (req, res) => {
+  try {
+    const { employeeId, month, year } = req.query;
+
+    // Validate required parameters
+    if (!employeeId || !month || !year) {
+      return res.status(400).json({
+        message: "employeeId, month, and year are required"
+      });
+    }
+
+    // Month name to index mapping
+    const months = [
+      "January", "February", "March", "April", "May", "June",
+      "July", "August", "September", "October", "November", "December"
+    ];
+    const monthIndex = months.indexOf(month);
+
+    if (monthIndex === -1) {
+      return res.status(400).json({
+        message: "Invalid month name. Use full month names like 'January', 'November', etc."
+      });
+    }
+
+    // Calculate date range for the month
+    const startDate = new Date(parseInt(year), monthIndex, 1);
+    const endDate = new Date(parseInt(year), monthIndex + 1, 0, 23, 59, 59, 999);
+    const totalDays = endDate.getDate();
+
+    // Get all APPROVED attendance records for this employee in the month
+    const records = await Attendance.find({
+      employeeId,
+      date: { $gte: startDate, $lte: endDate },
+      status: "APPROVED"
+    })
+    .populate({
+      path: 'employeeId',
+      select: 'firstName lastName email eId'
+    })
+    .lean();
+
+    // Count attendance by status
+    let presentDays = records.length;
+    let lateDays = 0;
+    let halfDays = 0;
+    let fullDays = 0;
+
+    records.forEach(record => {
+      if (record.autoStatus === "LATE") {
+        lateDays++;
+      } else if (record.autoStatus === "HALF_DAY") {
+        halfDays++;
+      } else if (record.autoStatus === "FULL_DAY") {
+        fullDays++;
+      }
+    });
+
+    // Get organization config for deduction rules
+    const orgId = "673db4bb4ea85b50f50f20d4"; // TODO: Get from employee record
+    let config = await OrganizationConfig.findOne({ orgId });
+
+    if (!config) {
+      config = await OrganizationConfig.create({ orgId });
+    }
+
+    // Calculate deductions based on config
+    let lateDeduction = 0;
+    let halfDayDeduction = 0;
+
+    if (config.deductions.lateRule.enabled) {
+      lateDeduction = Math.floor(lateDays / config.deductions.lateRule.count);
+    }
+
+    if (config.deductions.halfDayRule.enabled) {
+      halfDayDeduction = Math.floor(halfDays / config.deductions.halfDayRule.count);
+    }
+
+    const totalDeductions = lateDeduction + halfDayDeduction;
+
+    // Calculate final payable days
+    const payableDays = presentDays - totalDeductions;
+    const absentDays = totalDays - presentDays;
+
+    console.log(`Monthly summary for ${employeeId}: ${payableDays}/${totalDays} payable days`);
+
+    res.status(200).json({
+      employeeId,
+      employeeDetails: records.length > 0 ? records[0].employeeId : null,
+      month,
+      year: parseInt(year),
+      totalDays,
+      presentDays,
+      fullDays,
+      lateDays,
+      halfDays,
+      absentDays,
+      deductions: {
+        lateDeduction,
+        halfDayDeduction,
+        total: totalDeductions
+      },
+      deductionRules: {
+        lateRule: config.deductions.lateRule,
+        halfDayRule: config.deductions.halfDayRule
+      },
+      payableDays,
+      records
+    });
+
+  } catch (error) {
+    console.error("Error fetching monthly attendance summary:", error);
+    res.status(500).json({
+      message: "Failed to fetch monthly attendance summary",
+      error: error.message
+    });
+  }
+};

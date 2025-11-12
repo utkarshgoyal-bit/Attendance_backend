@@ -1,6 +1,8 @@
 import Salary from "../models/salaryModel.js";
 import Employee from "../models/employeeModel.js";
 import SalaryConfig from "../models/salaryConfigModel.js";
+import OrganizationConfig from "../models/organizationConfigModel.js";
+import Attendance from "../models/attendanceModel.js";
 
 export const createSalary = async (req, res) => {
   try {
@@ -212,6 +214,171 @@ export const editSalary = async (req, res) => {
 
     res.status(500).json({
       message: "Failed to update salary",
+      error: error.message
+    });
+  }
+};
+
+// ========== AUTO-CALCULATE SALARY FROM ATTENDANCE ==========
+// Route: POST /api/salaries/calculate-from-attendance
+export const calculateSalaryFromAttendance = async (req, res) => {
+  try {
+    const { employeeId, month, year } = req.body;
+
+    // Validate required parameters
+    if (!employeeId || !month || !year) {
+      return res.status(400).json({
+        message: "employeeId, month, and year are required"
+      });
+    }
+
+    // Get employee
+    const employee = await Employee.findById(employeeId);
+    if (!employee) {
+      return res.status(404).json({
+        message: "Employee not found"
+      });
+    }
+
+    // Month name to index mapping
+    const months = [
+      "January", "February", "March", "April", "May", "June",
+      "July", "August", "September", "October", "November", "December"
+    ];
+    const monthIndex = months.indexOf(month);
+
+    if (monthIndex === -1) {
+      return res.status(400).json({
+        message: "Invalid month name. Use full month names like 'January', 'November', etc."
+      });
+    }
+
+    // Calculate date range for the month
+    const startDate = new Date(parseInt(year), monthIndex, 1);
+    const endDate = new Date(parseInt(year), monthIndex + 1, 0, 23, 59, 59, 999);
+    const totalDays = endDate.getDate();
+
+    // Get attendance records for this employee in the month
+    const records = await Attendance.find({
+      employeeId,
+      date: { $gte: startDate, $lte: endDate },
+      status: "APPROVED"
+    }).lean();
+
+    // Count attendance by status
+    let presentDays = records.length;
+    let lateDays = 0;
+    let halfDays = 0;
+
+    records.forEach(record => {
+      if (record.autoStatus === "LATE") {
+        lateDays++;
+      } else if (record.autoStatus === "HALF_DAY") {
+        halfDays++;
+      }
+    });
+
+    // Get organization config for deduction rules
+    const orgId = "673db4bb4ea85b50f50f20d4"; // TODO: Get from employee record
+    let config = await OrganizationConfig.findOne({ orgId });
+
+    if (!config) {
+      config = await OrganizationConfig.create({ orgId });
+    }
+
+    // Calculate deductions based on config
+    let lateDeduction = 0;
+    let halfDayDeduction = 0;
+
+    if (config.deductions.lateRule.enabled) {
+      lateDeduction = Math.floor(lateDays / config.deductions.lateRule.count);
+    }
+
+    if (config.deductions.halfDayRule.enabled) {
+      halfDayDeduction = Math.floor(halfDays / config.deductions.halfDayRule.count);
+    }
+
+    const totalDeductions = lateDeduction + halfDayDeduction;
+
+    // Calculate payable days
+    const payableDays = presentDays - totalDeductions;
+
+    // Get salary config for PF/ESI calculations
+    const salaryConfig = await SalaryConfig.findOne();
+    if (!salaryConfig) {
+      return res.status(400).json({
+        message: "Salary configuration not found. Please configure salary settings first."
+      });
+    }
+
+    // Calculate salary components
+    const base = employee.base || 0;
+    const hra = employee.hra || 0;
+    const conveyance = employee.conveyance || 0;
+
+    // Calculate per day salary
+    const perDaySalary = (base + hra + conveyance) / totalDays;
+    const grossSalary = perDaySalary * payableDays;
+
+    // Calculate deductions (PF, ESI)
+    let employeePF = 0;
+    let employeeESI = 0;
+
+    if (base >= salaryConfig.pfThresholdMin && base <= salaryConfig.pfThresholdMax) {
+      employeePF = (base * salaryConfig.employeePF) / 100;
+    }
+
+    if (base >= salaryConfig.esiThresholdMin && base <= salaryConfig.esiThresholdMax) {
+      employeeESI = (base * salaryConfig.employeeESI) / 100;
+    }
+
+    const netPayable = grossSalary - employeePF - employeeESI;
+
+    // Save or update salary record
+    const salary = await Salary.findOneAndUpdate(
+      { employeeId, month, year: parseInt(year) },
+      {
+        employeeId,
+        month,
+        year: parseInt(year),
+        attendanceDays: payableDays,
+        totalDays,
+        base,
+        hra,
+        conveyance,
+        netPayable: Math.round(netPayable),
+        ctc: Math.round(grossSalary)
+      },
+      { upsert: true, new: true, runValidators: true }
+    ).populate("employeeId", "firstName lastName email eId");
+
+    console.log(`Salary calculated for ${employee.firstName} ${employee.lastName}: ${payableDays}/${totalDays} days, Net: ${Math.round(netPayable)}`);
+
+    res.status(200).json({
+      message: "Salary calculated and saved successfully",
+      summary: {
+        employeeName: `${employee.firstName} ${employee.lastName}`,
+        totalDays,
+        presentDays,
+        lateDays,
+        halfDays,
+        lateDeduction,
+        halfDayDeduction,
+        totalDeductions,
+        payableDays,
+        perDaySalary: Math.round(perDaySalary),
+        grossSalary: Math.round(grossSalary),
+        employeePF: Math.round(employeePF),
+        employeeESI: Math.round(employeeESI),
+        netPayable: Math.round(netPayable)
+      },
+      salary
+    });
+
+  } catch (error) {
+    console.error("Error calculating salary from attendance:", error);
+    res.status(500).json({
+      message: "Failed to calculate salary",
       error: error.message
     });
   }
