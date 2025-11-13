@@ -192,6 +192,6 @@ employeeSchema.index({ role: 1 }); // Index for role-based queries
 employeeSchema.index({ managerId: 1 }); // Index for manager hierarchy queries
 employeeSchema.index({ department: 1 }); // Index for department queries
 
-const Employee = mongoose.model("Employee", employeeSchema, "employee");
+const Employee = mongoose.model("Employee", employeeSchema, "employees");
 
 export default Employee;
