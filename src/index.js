@@ -23,6 +23,5 @@ app.use("/api/salary-config", salaryConfigRoutes);
 app.use("/api/attendance", attendanceRoutes);
 app.use("/api/config", configRoutes);
 app.use("/api/leaves", leaveRoutes);
-
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
