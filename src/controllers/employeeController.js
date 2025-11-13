@@ -103,6 +103,53 @@ export const getEmployees = async (req, res) => {
   }
 };
 
+export const createEmployee = async (req, res) => {
+  try {
+    console.log('Creating employee:', req.body);
+    
+    // Clean up the data before saving
+    const employeeData = { ...req.body };
+    
+    // Fix managerId - remove if empty
+    if (!employeeData.managerId || employeeData.managerId === '') {
+      delete employeeData.managerId;
+    }
+    
+    // Fix joiningDate - convert to timestamp
+    if (employeeData.joiningDate) {
+      employeeData.joiningDate = new Date(employeeData.joiningDate).getTime();
+    }
+    
+    // Fix dob if present - convert to timestamp
+    if (employeeData.dob) {
+      employeeData.dob = new Date(employeeData.dob).getTime();
+    }
+    
+    // Hash password if creating account
+    if (employeeData.hasAccount && employeeData.password) {
+      const bcrypt = await import('bcryptjs');
+      employeeData.password = await bcrypt.default.hash(employeeData.password, 10);
+    }
+    
+    console.log('Cleaned employee data:', employeeData);
+    
+    const employee = await Employee.create(employeeData);
+    
+    console.log('Employee created:', employee._id);
+    
+    res.status(201).json({
+      message: "Employee created successfully",
+      employee
+    });
+  } catch (error) {
+    console.error("Error creating employee:", error);
+    res.status(500).json({
+      message: "Failed to create employee",
+      error: error.message,
+    });
+  }
+};
+
 export const getEmployeeStats = async (req, res) => {
   try {
     const { month, year } = req.query;
