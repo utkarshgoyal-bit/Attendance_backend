@@ -258,25 +258,41 @@ export const calculateSalaryFromAttendance = async (req, res) => {
     const endDate = new Date(parseInt(year), monthIndex + 1, 0, 23, 59, 59, 999);
     const totalDays = endDate.getDate();
 
-    // Get attendance records for this employee in the month
+    // Get ALL attendance records for this employee in the month
     const records = await Attendance.find({
       employeeId,
       date: { $gte: startDate, $lte: endDate },
       status: "APPROVED"
     }).lean();
 
-    // Count attendance by status
-    let presentDays = records.length;
+    // Count attendance by type
+    let fullDays = 0;
     let lateDays = 0;
     let halfDays = 0;
+    let paidLeaveDays = 0;
+    let unpaidLeaveDays = 0;
+    let holidayDays = 0;
+    let weekOffDays = 0;
 
     records.forEach(record => {
-      if (record.autoStatus === "LATE") {
+      if (record.autoStatus === "FULL_DAY") {
+        fullDays++;
+      } else if (record.autoStatus === "LATE") {
         lateDays++;
       } else if (record.autoStatus === "HALF_DAY") {
         halfDays++;
+      } else if (record.autoStatus === "PAID_LEAVE") {
+        paidLeaveDays++;
+      } else if (record.autoStatus === "UNPAID_LEAVE") {
+        unpaidLeaveDays++;
+      } else if (record.autoStatus === "HOLIDAY") {
+        holidayDays++;
+      } else if (record.autoStatus === "WEEK_OFF") {
+        weekOffDays++;
       }
     });
+
+    const presentDays = fullDays + lateDays + halfDays;
 
     // Get organization config for deduction rules
     const orgId = "673db4bb4ea85b50f50f20d4"; // TODO: Get from employee record
@@ -301,7 +317,12 @@ export const calculateSalaryFromAttendance = async (req, res) => {
     const totalDeductions = lateDeduction + halfDayDeduction;
 
     // Calculate payable days
-    const payableDays = presentDays - totalDeductions;
+    // Payable = Present + Paid Leaves + Holidays + Week Offs - Deductions
+    // Unpaid leaves are NOT counted in payable days
+    const payableDays = presentDays + paidLeaveDays + holidayDays + weekOffDays - totalDeductions;
+
+    // Calculate absent days
+    const absentDays = totalDays - (presentDays + paidLeaveDays + unpaidLeaveDays + holidayDays + weekOffDays);
 
     // Get salary config for PF/ESI calculations
     const salaryConfig = await SalaryConfig.findOne();
@@ -360,8 +381,14 @@ export const calculateSalaryFromAttendance = async (req, res) => {
         employeeName: `${employee.firstName} ${employee.lastName}`,
         totalDays,
         presentDays,
+        fullDays,
         lateDays,
         halfDays,
+        paidLeaveDays,
+        unpaidLeaveDays,
+        holidayDays,
+        weekOffDays,
+        absentDays,
         lateDeduction,
         halfDayDeduction,
         totalDeductions,

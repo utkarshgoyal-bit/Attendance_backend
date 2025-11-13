@@ -34,10 +34,10 @@ const attendanceSchema = new Schema(
       default: 'PENDING',
     },
 
-    // Auto-calculated status based on check-in time
+    // Auto-calculated status based on check-in time or leave/holiday
     autoStatus: {
       type: Types.String,
-      enum: ['FULL_DAY', 'LATE', 'HALF_DAY', 'ABSENT'],
+      enum: ['FULL_DAY', 'LATE', 'HALF_DAY', 'ABSENT', 'PAID_LEAVE', 'UNPAID_LEAVE', 'HOLIDAY', 'WEEK_OFF'],
     },
 
     // Branch identifier - which branch/location employee checked in at

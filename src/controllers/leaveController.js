@@ -1,6 +1,7 @@
 import Leave from "../models/leaveModel.js";
 import LeaveBalance from "../models/leaveBalanceModel.js";
 import OrganizationConfig from "../models/organizationConfigModel.js";
+import Attendance from "../models/attendanceModel.js";
 
 // Apply Leave
 export const applyLeave = async (req, res) => {
@@ -198,6 +199,45 @@ export const approveLeave = async (req, res) => {
       await balance.save();
     }
 
+    // NEW: Auto-create attendance records for each leave day
+    const startDate = new Date(leave.startDate);
+    const endDate = new Date(leave.endDate);
+
+    const attendanceRecords = [];
+
+    for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+      const dayStart = new Date(d);
+      dayStart.setHours(0, 0, 0, 0);
+
+      // Check if attendance already exists for this day
+      const exists = await Attendance.findOne({
+        employeeId: leave.employeeId,
+        date: dayStart
+      });
+
+      if (!exists) {
+        // Determine status based on leave type
+        const autoStatus = leave.leaveType === 'LWP' ? 'UNPAID_LEAVE' : 'PAID_LEAVE';
+
+        // Create attendance record for leave day
+        const attendance = await Attendance.create({
+          employeeId: leave.employeeId,
+          date: dayStart,
+          checkInTime: new Date(dayStart.setHours(9, 0, 0, 0)),
+          status: 'APPROVED',
+          autoStatus: autoStatus,
+          branchId: 'JAIPUR',
+          qrCodeId: 'LEAVE_AUTO',
+          approvedBy: approvedBy,
+          approvedAt: new Date()
+        });
+
+        attendanceRecords.push(attendance);
+      }
+    }
+
+    console.log(`Created ${attendanceRecords.length} attendance records for approved leave`);
+
     // Approve leave
     leave.status = 'APPROVED';
     leave.approvedBy = approvedBy;
@@ -209,7 +249,8 @@ export const approveLeave = async (req, res) => {
 
     res.status(200).json({
       message: "Leave approved successfully",
-      leave
+      leave,
+      attendanceRecordsCreated: attendanceRecords.length
     });
   } catch (error) {
     console.error('Approve leave error:', error);
