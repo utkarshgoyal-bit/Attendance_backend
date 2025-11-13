@@ -8,6 +8,7 @@ import salaryConfigRoutes from "./routes/salaryConfigRoutes.js";
 import attendanceRoutes from "./routes/attendanceRoutes.js";
 import configRoutes from "./routes/configRoutes.js";
 import leaveRoutes from "./routes/leaveRoutes.js";
+import branchRoutes from "./routes/branchRoutes.js";
 
 dotenv.config();
 const app = express();
@@ -23,5 +24,6 @@ app.use("/api/salary-config", salaryConfigRoutes);
 app.use("/api/attendance", attendanceRoutes);
 app.use("/api/config", configRoutes);
 app.use("/api/leaves", leaveRoutes);
+app.use("/api/branches", branchRoutes);
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

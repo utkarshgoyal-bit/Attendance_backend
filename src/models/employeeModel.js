@@ -137,6 +137,23 @@ const employeeSchema = new Schema({
     ref: 'User'
   },
 
+  hasAccount: {
+    type: Boolean,
+    default: false
+  },
+
+  password: String,
+
+  branchId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Branch'
+  },
+
+  probationDays: {
+    type: Number,
+    default: 90
+  },
+
   isActive: {
     type: Types.Boolean,
     required: true,
