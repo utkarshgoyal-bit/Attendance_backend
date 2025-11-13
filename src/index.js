@@ -11,6 +11,7 @@ import configRoutes from "./routes/configRoutes.js";
 import leaveRoutes from "./routes/leaveRoutes.js";
 import branchRoutes from "./routes/branchRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
+import { authenticate } from "./middleware/authMiddleware.js";
 
 dotenv.config();
 const app = express();
