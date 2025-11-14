@@ -1,65 +1,73 @@
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 import dotenv from 'dotenv';
+import Employee from './src/models/employeeModel.js';
 
+// Load environment variables
 dotenv.config();
 
-const employeeSchema = new mongoose.Schema({
-  firstName: String,
-  lastName: String,
-  email: String,
-  phone: String,
-  eId: String,
-  department: String,
-  designation: String,
-  joiningDate: Date,
-  base: Number,
-  hra: Number,
-  conveyance: Number,
-  hasAccount: Boolean,
-  password: String,
-  role: String,
-  orgId: String
-});
-
-const Employee = mongoose.model('Employee', employeeSchema);
-
-const createAdmin = async () => {
+const createAdminUser = async () => {
   try {
+    // Connect to MongoDB
+    console.log('Connecting to MongoDB...');
     await mongoose.connect(process.env.MONGO_URI);
-    console.log('✓ Connected to MongoDB');
+    console.log('✅ Connected to MongoDB');
 
+    // Check if admin already exists
+    const existingAdmin = await Employee.findOne({ email: 'admin@company.com' });
+
+    if (existingAdmin) {
+      console.log('⚠️  Admin user already exists!');
+      console.log('Email:', existingAdmin.email);
+      console.log('Role:', existingAdmin.role);
+      console.log('Has Account:', existingAdmin.hasAccount);
+      process.exit(0);
+    }
+
+    // Hash password
     const hashedPassword = await bcrypt.hash('admin123', 10);
 
-    const admin = await Employee.create({
+    // Create admin user
+    const adminUser = new Employee({
       firstName: 'Admin',
       lastName: 'User',
       email: 'admin@company.com',
-      phone: '9876543210',
-      eId: 'EMP001',
-      department: 'Management',
-      designation: 'System Admin',
-      joiningDate: new Date(),
-      base: 50000,
-      hra: 20000,
-      conveyance: 1600,
-      hasAccount: true,
       password: hashedPassword,
+      mobile: '9876543210',
+      eId: 'ADMIN001',
+      department: 'Management',
+      designation: 'System Administrator',
+      joiningDate: Date.now(),
+      baseSalary: '100000',
+      hra: '40000',
+      conveyance: '1600',
+      hasAccount: true,
       role: 'SUPER_ADMIN',
-      orgId: '673db4bb4ea85b50f50f20d4'
+      orgId: new mongoose.Types.ObjectId('673db4bb4ea85b50f50f20d4'),
+      isActive: true
     });
 
-    console.log('\n✓ Admin created successfully!\n');
-    console.log('Login Credentials:');
+    await adminUser.save();
+
+    console.log('\n✅ Admin user created successfully!');
+    console.log('================================');
     console.log('Email: admin@company.com');
     console.log('Password: admin123');
-    console.log('Role: SUPER_ADMIN\n');
-    
-    process.exit(0);
+    console.log('Role: SUPER_ADMIN');
+    console.log('Employee ID: ADMIN001');
+    console.log('================================');
+    console.log('\nYou can now login using these credentials.');
+
   } catch (error) {
-    console.error('✗ Error:', error.message);
+    console.error('❌ Error creating admin user:', error);
     process.exit(1);
+  } finally {
+    // Close database connection
+    await mongoose.connection.close();
+    console.log('\n✅ Database connection closed');
+    process.exit(0);
   }
 };
 
-createAdmin();
+// Run the script
+createAdminUser();

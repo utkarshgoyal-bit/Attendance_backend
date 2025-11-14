@@ -144,6 +144,11 @@ const employeeSchema = new Schema({
 
   password: String,
 
+  orgId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Organization'
+  },
+
   branchId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Branch'
