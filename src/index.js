@@ -13,6 +13,7 @@ import configRoutes from "./routes/configRoutes.js";
 import leaveRoutes from "./routes/leaveRoutes.js";
 import branchRoutes from "./routes/branchRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
+import salaryComponentRoutes from "./routes/salaryComponentRoutes.js";
 
 // Import middleware
 import { authenticate } from "./middleware/authMiddleware.js";
@@ -42,6 +43,7 @@ app.use("/api/attendance", authenticate, attendanceRoutes);
 app.use("/api/config", authenticate, configRoutes);
 app.use("/api/leaves", authenticate, leaveRoutes);
 app.use("/api/branches", authenticate, branchRoutes);
+app.use("/api/v2/salary-components", salaryComponentRoutes);
 
 // Health check
 app.get("/api/health", (req, res) => {
