@@ -2,7 +2,6 @@ import mongoose from "mongoose";
 
 const salaryComponentSchema = new mongoose.Schema(
   {
-    // Organization reference
     orgId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Organization',
@@ -10,7 +9,6 @@ const salaryComponentSchema = new mongoose.Schema(
       index: true
     },
 
-    // Component identification
     name: {
       type: String,
       required: [true, 'Component name is required'],
@@ -20,83 +18,66 @@ const salaryComponentSchema = new mongoose.Schema(
     code: {
       type: String,
       required: [true, 'Component code is required'],
-      unique: true,  // ✅ ONLY UNIQUE HERE - NOT in index()
+      unique: true,
       uppercase: true,
       trim: true
     },
 
-    // Component category
     category: {
       type: String,
       enum: ['EARNING', 'DEDUCTION', 'EMPLOYER_CONTRIBUTION'],
       required: [true, 'Category is required']
     },
 
-    // Component type
     type: {
       type: String,
       enum: ['FIXED', 'VARIABLE', 'PERCENTAGE', 'FORMULA'],
       required: [true, 'Type is required']
     },
 
-    // Calculation method
     calculationType: {
       type: String,
-      enum: [
-        'FLAT',
-        'PERCENTAGE_OF_BASE',
-        'PERCENTAGE_OF_GROSS',
-        'PERCENTAGE_OF_CTC',
-        'CUSTOM_FORMULA'
-      ],
+      enum: ['FLAT', 'PERCENTAGE_OF_BASE', 'PERCENTAGE_OF_GROSS', 'PERCENTAGE_OF_CTC', 'CUSTOM_FORMULA'],
       default: 'FLAT'
     },
 
-    // For FIXED or PERCENTAGE type
     value: {
       type: Number,
       default: 0,
       min: 0
     },
 
-    // For FORMULA type
     formula: {
       type: String,
       trim: true
     },
 
-    // Active status
     isActive: {
       type: Boolean,
       default: true,
       index: true
     },
 
-    // Tax configuration
     isTaxable: {
       type: Boolean,
       default: true
     },
 
-    // Is statutory component (PF, ESI, PT)?
     isStatutory: {
       type: Boolean,
       default: false
     },
 
-    // Affects attendance-based calculation
     isAttendanceBased: {
       type: Boolean,
       default: true
     },
 
-    // Display order
     displayOrder: {
       type: Number,
       default: 0
     },
 
-    // Applicability
     applicableRoles: [{
       type: String,
       enum: ['EMPLOYEE', 'MANAGER', 'HR_ADMIN', 'SUPER_ADMIN', 'ALL']
@@ -106,7 +87,6 @@ const salaryComponentSchema = new mongoose.Schema(
       type: String
     }],
 
-    // Thresholds
     minThreshold: {
       type: Number,
       default: 0
@@ -116,13 +96,11 @@ const salaryComponentSchema = new mongoose.Schema(
       type: Number
     },
 
-    // Description
     description: {
       type: String,
       trim: true
     },
 
-    // Metadata
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Employee'
@@ -138,11 +116,9 @@ const salaryComponentSchema = new mongoose.Schema(
   }
 );
 
-// ✅ INDEXES - NO DUPLICATE CODE INDEX
+// Indexes - NO DUPLICATE!
 salaryComponentSchema.index({ orgId: 1, isActive: 1 });
 salaryComponentSchema.index({ category: 1 });
-// ❌ REMOVED: salaryComponentSchema.index({ code: 1 }, { unique: true });
-// Code already has unique:true in schema definition above
 
 // Virtuals
 salaryComponentSchema.virtual('displayName').get(function() {
