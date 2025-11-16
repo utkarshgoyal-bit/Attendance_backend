@@ -43,7 +43,7 @@ app.use("/api/attendance", authenticate, attendanceRoutes);
 app.use("/api/config", authenticate, configRoutes);
 app.use("/api/leaves", authenticate, leaveRoutes);
 app.use("/api/branches", authenticate, branchRoutes);
-app.use("/api/v2/salary-components", salaryComponentRoutes);
+app.use("/api/v2/salary-components", authenticate, salaryComponentRoutes);  // ✅ With authenticate
 
 // Health check
 app.get("/api/health", (req, res) => {
