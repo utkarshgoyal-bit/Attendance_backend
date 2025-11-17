@@ -1,6 +1,7 @@
 import express from "express";
 import { requireRole } from "../middleware/authMiddleware.js";
 import { getEmployees, getEmployeeStats, createEmployee, getEmployeeById } from "../controllers/employeeController.js";
+import Salary from "../models/salaryModel.js";
 const router = express.Router();
 
 // ========== MANAGER/HR/ADMIN ROUTES ==========
