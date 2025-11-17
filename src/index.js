@@ -17,6 +17,8 @@ import salaryComponentRoutes from "./routes/salaryComponentRoutes.js";
 import employeeSalaryStructureRoutes from "./routes/employeeSalaryStructureRoutes.js"; // 👈 ADD THIS
 import statutoryTemplateRoutes from "./routes/statutoryTemplateRoutes.js";
 import salaryCalculationRoutes from "./routes/salaryCalculationRoutes.js";
+import salaryApprovalRoutes from "./routes/salaryApprovalRoutes.js";
+import salarySlipRoutes from "./routes/salarySlipRoutes.js"; // 👈 ADD THIS
 // Import middleware
 import { authenticate } from "./middleware/authMiddleware.js";
 
@@ -49,6 +51,8 @@ app.use("/api/v2/salary-components", authenticate, salaryComponentRoutes);  // �
 app.use("/api/employee-salary-structure", authenticate, employeeSalaryStructureRoutes); // 👈 ADD THIS
 app.use("/api/statutory-templates", authenticate, statutoryTemplateRoutes);
 app.use("/api/salary-calculation", authenticate, salaryCalculationRoutes);
+app.use("/api/salary-approval", authenticate, salaryApprovalRoutes);
+app.use("/api/salary-slips", authenticate, salarySlipRoutes); // 👈 ADD THIS
 // Health check
 app.get("/api/health", (req, res) => {
   res.json({ status: "OK", message: "Server is running" });

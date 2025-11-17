@@ -15,6 +15,23 @@ const salarySchema = new mongoose.Schema({
   ctc: { type: Number, default: 0 },
   month: { type: String },
   year: { type: Number },
+
+  // 👇 ADD THESE NEW FIELDS
+  status: {
+    type: String,
+    enum: ['DRAFT', 'PENDING_APPROVAL', 'APPROVED', 'PROCESSED'],
+    default: 'DRAFT'
+  },
+  approvedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Employee'
+  },
+  approvedAt: {
+    type: Date
+  },
+  approvalComments: {
+    type: String
+  }
 }, { timestamps: true });
 
 // Add indexes for performance optimization
