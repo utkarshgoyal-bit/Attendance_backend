@@ -52,7 +52,8 @@ export const getEmployees = async (req, res) => {
       .lean(); // Convert to plain JavaScript objects for better performance
 
     // If month and year are provided, populate filtered salaries
-    if (month && year) {
+    // If month and year are provided, populate filtered salaries
+    if (month && year && year !== 'undefined' && !isNaN(parseInt(year))) {  // ✅ Add validation
       const employeeIds = employees.map(emp => emp._id);
 
       // Fetch only salaries matching the month and year
