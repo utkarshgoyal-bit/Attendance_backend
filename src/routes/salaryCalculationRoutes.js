@@ -2,7 +2,9 @@ import express from "express";
 import {
   calculateEmployeeSalary,
   calculateAndSaveSalary,
-  testCalculation
+  testCalculation,
+  bulkCalculateSalaries,
+  bulkSaveSalaries  // 👈 ADD THIS
 } from "../controllers/salaryCalculationController.js";
 import { requireRole } from "../middleware/authMiddleware.js";
 
@@ -30,5 +32,16 @@ router.post(
   requireRole('HR_ADMIN', 'SUPER_ADMIN'),
   calculateAndSaveSalary
 );
-
+// Bulk calculate for multiple employees
+router.post(
+  "/bulk-calculate",
+  requireRole('HR_ADMIN', 'SUPER_ADMIN'),
+  bulkCalculateSalaries
+);
+// Bulk save salaries
+router.post(
+  "/bulk-save",
+  requireRole('HR_ADMIN', 'SUPER_ADMIN'),
+  bulkSaveSalaries
+);
 export default router;

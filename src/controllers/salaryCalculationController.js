@@ -110,3 +110,163 @@ export const testCalculation = async (req, res) => {
     });
   }
 };
+// ========== BULK SAVE SALARIES ==========
+export const bulkSaveSalaries = async (req, res) => {
+  try {
+    const { month, year, salaries } = req.body;
+
+    if (!month || !year || !salaries || salaries.length === 0) {
+      return res.status(400).json({
+        message: "month, year, and salaries array are required"
+      });
+    }
+
+    console.log(`\n💾 Bulk saving ${salaries.length} salaries...`);
+
+    const saved = [];
+    const errors = [];
+
+    for (const salaryData of salaries) {
+      try {
+        // Check if salary already exists
+        const existing = await Salary.findOne({
+          employeeId: salaryData.employeeId,
+          month,
+          year
+        });
+
+        if (existing) {
+          errors.push({
+            employeeId: salaryData.employeeId,
+            employeeName: salaryData.employeeName,
+            error: 'Salary already exists for this month'
+          });
+          continue;
+        }
+
+        // Create new salary record
+        const salary = new Salary({
+          employeeId: salaryData.employeeId,
+          month,
+          year,
+          attendanceDays: salaryData.attendance.presentDays,
+          totalDays: salaryData.attendance.totalDays,
+          base: salaryData.earnings?.find(e => e.code === 'BASE')?.amount || 0,
+          hra: salaryData.earnings?.find(e => e.code === 'HRA')?.amount || 0,
+          conveyance: salaryData.earnings?.find(e => e.code === 'CONVEYANCE')?.amount || 0,
+          netPayable: salaryData.netSalary,
+          ctc: salaryData.grossEarnings
+        });
+
+        await salary.save();
+        
+        saved.push({
+          employeeId: salaryData.employeeId,
+          employeeName: salaryData.employeeName,
+          status: 'SAVED'
+        });
+
+      } catch (error) {
+        console.error(`❌ Error saving for ${salaryData.employeeId}:`, error.message);
+        errors.push({
+          employeeId: salaryData.employeeId,
+          employeeName: salaryData.employeeName,
+          error: error.message
+        });
+      }
+    }
+
+    console.log(`✅ Bulk save complete: ${saved.length} saved, ${errors.length} errors`);
+
+    res.status(200).json({
+      message: "Bulk save completed",
+      summary: {
+        total: salaries.length,
+        saved: saved.length,
+        failed: errors.length
+      },
+      saved,
+      errors
+    });
+
+  } catch (error) {
+    console.error("Error in bulk save:", error);
+    res.status(500).json({
+      message: "Failed to save salaries",
+      error: error.message
+    });
+  }
+};
+// ========== BULK CALCULATE FOR ALL EMPLOYEES ==========
+export const bulkCalculateSalaries = async (req, res) => {
+  try {
+    const { month, year, employeeIds } = req.body;
+
+    if (!month || !year) {
+      return res.status(400).json({
+        message: "month and year are required"
+      });
+    }
+
+    // Get all active employees if no specific IDs provided
+    let employees;
+    if (employeeIds && employeeIds.length > 0) {
+      employees = employeeIds;
+    } else {
+      const Employee = (await import("../models/employeeModel.js")).default;
+      const allEmployees = await Employee.find({ 
+        MONGO_DELETED: false,
+        isActive: true 
+      }).select('_id');
+      employees = allEmployees.map(e => e._id.toString());
+    }
+
+    console.log(`\n📊 Bulk calculating salaries for ${employees.length} employees...`);
+
+    const results = [];
+    const errors = [];
+
+    // Calculate for each employee
+    for (const employeeId of employees) {
+      try {
+        const result = await salaryCalculationService.calculateSalary(employeeId, month, year);
+        results.push({
+          employeeId,
+          employeeName: result.employeeName,
+          status: 'SUCCESS',
+          grossEarnings: result.grossEarnings,
+          totalDeductions: result.totalDeductions,
+          netSalary: result.netSalary,
+          attendance: result.attendance
+        });
+      } catch (error) {
+        console.error(`❌ Error calculating for ${employeeId}:`, error.message);
+        errors.push({
+          employeeId,
+          status: 'ERROR',
+          error: error.message
+        });
+      }
+    }
+
+    console.log(`✅ Bulk calculation complete: ${results.length} success, ${errors.length} errors`);
+
+    res.status(200).json({
+      message: "Bulk calculation completed",
+      summary: {
+        total: employees.length,
+        successful: results.length,
+        failed: errors.length
+      },
+      results,
+      errors
+    });
+
+  } catch (error) {
+    console.error("Error in bulk calculation:", error);
+    res.status(500).json({
+      message: "Failed to process bulk calculation",
+      error: error.message
+    });
+  }
+};
