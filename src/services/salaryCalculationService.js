@@ -109,36 +109,44 @@ class SalaryCalculationService {
   }
   
   // ========== CALCULATE EARNINGS ==========
-  async calculateEarnings(structure, attendanceData) {
-    const earnings = [];
-    let total = 0;
+  // ========== CALCULATE EARNINGS ==========
+async calculateEarnings(structure, attendanceData) {
+  const earnings = [];
+  let total = 0;
+  
+  for (const comp of structure.components) {
+    const component = comp.componentId;
     
-    for (const comp of structure.components) {
-      const component = comp.componentId;
-      let amount = comp.value;
-      
-      // Apply attendance proration if component is attendance-based
-      if (component.isAttendanceBased) {
-        amount = (amount / attendanceData.totalDays) * attendanceData.presentDays;
-      }
-      
-      earnings.push({
-        componentId: component._id,
-        code: component.code,
-        name: component.name,
-        originalAmount: comp.value,
-        amount: Math.round(amount),
-        isAttendanceBased: component.isAttendanceBased
-      });
-      
-      total += Math.round(amount);
+    // 🔥 CRITICAL FIX: Only process EARNING components, skip DEDUCTIONS
+    if (component.category !== 'EARNING') {
+      console.log(`⏭️  Skipping ${component.code} (${component.category}) - Will be calculated by templates`);
+      continue;
     }
     
-    return {
-      items: earnings,
-      total
-    };
+    let amount = comp.value;
+    
+    // Apply attendance proration if component is attendance-based
+    if (component.isAttendanceBased) {
+      amount = (amount / attendanceData.totalDays) * attendanceData.presentDays;
+    }
+    
+    earnings.push({
+      componentId: component._id,
+      code: component.code,
+      name: component.name,
+      originalAmount: comp.value,
+      amount: Math.round(amount),
+      isAttendanceBased: component.isAttendanceBased
+    });
+    
+    total += Math.round(amount);
   }
+  
+  return {
+    items: earnings,
+    total
+  };
+}
   
   // ========== CALCULATE DEDUCTIONS ==========
   async calculateDeductions(templates, earnings, attendanceData, employee) {
@@ -183,7 +191,6 @@ class SalaryCalculationService {
       total
     };
   }
-  
   // ========== CHECK IF TEMPLATE IS APPLICABLE ==========
   isTemplateApplicable(template, grossSalary, basicSalary, employee) {
     // If mandatory, always applicable
