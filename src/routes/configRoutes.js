@@ -1,14 +1,17 @@
 import express from 'express';
 import {
   getConfig,
-  updateConfig,
-  updateAttendanceTiming,
-  updateDeductions,
-  updateLeavePolicy,
-  updateWorkingDays,
-  updateQRSettings,
-  updateGracePeriod,
-  resetToDefaults,
+  updateSection,
+  toggleSection,
+  addField,
+  updateField,
+  deleteField,
+  reorderFields,
+  bulkUpdateFieldValues,
+  resetSection,
+  resetAllToDefaults,
+  uploadLogo,
+  toggleBranchSpecific,
   checkAttendanceStatus,
   calculateDeductions
 } from '../controllers/configController.js';
@@ -16,45 +19,30 @@ import { requireRole } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
-// ========== MAIN CONFIG ROUTES ==========
-
-// Get organization configuration - HR and Super Admin can view
+// ========== MAIN CONFIG ==========
 router.get('/:orgId', requireRole('HR_ADMIN', 'SUPER_ADMIN'), getConfig);
+router.post('/:orgId/reset', requireRole('SUPER_ADMIN'), resetAllToDefaults);
 
-// Update entire configuration - Super Admin only (critical operation)
-router.put('/:orgId', requireRole('SUPER_ADMIN'), updateConfig);
+// ========== SECTION OPERATIONS ==========
+router.put('/:orgId/section/:section', requireRole('SUPER_ADMIN'), updateSection);
+router.patch('/:orgId/section/:section/toggle', requireRole('SUPER_ADMIN'), toggleSection);
+router.post('/:orgId/section/:section/reset', requireRole('SUPER_ADMIN'), resetSection);
+router.patch('/:orgId/section/:section/bulk-update', requireRole('SUPER_ADMIN'), bulkUpdateFieldValues);
+router.patch('/:orgId/section/:section/reorder', requireRole('SUPER_ADMIN'), reorderFields);
 
-// Reset configuration to defaults - Super Admin only (critical operation)
-router.post('/:orgId/reset', requireRole('SUPER_ADMIN'), resetToDefaults);
+// ========== FIELD OPERATIONS ==========
+router.post('/:orgId/section/:section/field', requireRole('SUPER_ADMIN'), addField);
+router.put('/:orgId/section/:section/field/:fieldId', requireRole('SUPER_ADMIN'), updateField);
+router.delete('/:orgId/section/:section/field/:fieldId', requireRole('SUPER_ADMIN'), deleteField);
 
-// ========== SPECIFIC SECTION UPDATES ==========
-// Super Admin only for all configuration changes
+// ========== COMPANY PROFILE ==========
+router.post('/:orgId/logo', requireRole('SUPER_ADMIN'), uploadLogo);
 
-// Update attendance timing rules
-router.put('/:orgId/attendance-timing', requireRole('SUPER_ADMIN'), updateAttendanceTiming);
-
-// Update deduction rules
-router.put('/:orgId/deductions', requireRole('SUPER_ADMIN'), updateDeductions);
-
-// Update leave policy
-router.put('/:orgId/leave-policy', requireRole('SUPER_ADMIN'), updateLeavePolicy);
-
-// Update working days
-router.put('/:orgId/working-days', requireRole('SUPER_ADMIN'), updateWorkingDays);
-
-// Update QR code settings
-router.put('/:orgId/qr-settings', requireRole('SUPER_ADMIN'), updateQRSettings);
-
-// Update grace period
-router.put('/:orgId/grace-period', requireRole('SUPER_ADMIN'), updateGracePeriod);
+// ========== BRANCH CONFIG ==========
+router.patch('/:orgId/branch-specific', requireRole('SUPER_ADMIN'), toggleBranchSpecific);
 
 // ========== UTILITY ROUTES ==========
-// HR and Super Admin can use utility functions
-
-// Check attendance status for a given time
 router.post('/:orgId/check-status', requireRole('HR_ADMIN', 'SUPER_ADMIN'), checkAttendanceStatus);
-
-// Calculate deductions based on late/half-day counts
 router.post('/:orgId/calculate-deductions', requireRole('HR_ADMIN', 'SUPER_ADMIN'), calculateDeductions);
 
 export default router;

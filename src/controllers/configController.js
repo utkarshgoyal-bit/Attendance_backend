@@ -1,415 +1,327 @@
 import OrganizationConfig from "../models/organizationConfigModel.js";
 
 // ========== GET ORGANIZATION CONFIG ==========
-// Route: GET /api/config/:orgId
 export const getConfig = async (req, res) => {
   try {
     const { orgId } = req.params;
+    if (!orgId) return res.status(400).json({ message: "Organization ID is required" });
 
-    if (!orgId) {
-      return res.status(400).json({
-        message: "Organization ID is required"
-      });
-    }
-
-    // Get or create config
-    let config = await OrganizationConfig.getOrCreateConfig(orgId);
-
-    res.status(200).json({
-      message: "Configuration retrieved successfully",
-      config
-    });
+    const config = await OrganizationConfig.getOrCreateConfig(orgId);
+    res.status(200).json({ message: "Configuration retrieved successfully", config });
   } catch (error) {
     console.error('Error getting config:', error);
-    res.status(500).json({
-      message: "Failed to get configuration",
-      error: error.message
-    });
+    res.status(500).json({ message: "Failed to get configuration", error: error.message });
   }
 };
 
-// ========== UPDATE ORGANIZATION CONFIG ==========
-// Route: PUT /api/config/:orgId
-export const updateConfig = async (req, res) => {
+// ========== UPDATE ENTIRE SECTION ==========
+export const updateSection = async (req, res) => {
   try {
-    const { orgId } = req.params;
+    const { orgId, section } = req.params;
+    const { enabled, fields } = req.body;
+
+    const validSections = ['attendanceSettings', 'deductionSettings', 'leaveSettings', 'workingDaysSettings', 'qrSettings', 'companyProfile'];
+    if (!validSections.includes(section)) return res.status(400).json({ message: "Invalid section name" });
+
+    const updateData = {};
+    if (enabled !== undefined) updateData[`${section}.enabled`] = enabled;
+    if (fields) updateData[`${section}.fields`] = fields;
+
+    const config = await OrganizationConfig.findOneAndUpdate(
+      { orgId },
+      { $set: updateData, lastUpdatedBy: req.user?.id },
+      { new: true, runValidators: true }
+    );
+
+    if (!config) return res.status(404).json({ message: "Configuration not found" });
+    res.status(200).json({ message: `${section} updated successfully`, section: config[section] });
+  } catch (error) {
+    console.error('Error updating section:', error);
+    res.status(500).json({ message: "Failed to update section", error: error.message });
+  }
+};
+
+// ========== TOGGLE SECTION ENABLED ==========
+export const toggleSection = async (req, res) => {
+  try {
+    const { orgId, section } = req.params;
+    const { enabled } = req.body;
+
+    const config = await OrganizationConfig.findOneAndUpdate(
+      { orgId },
+      { $set: { [`${section}.enabled`]: enabled } },
+      { new: true }
+    );
+
+    if (!config) return res.status(404).json({ message: "Configuration not found" });
+    res.status(200).json({ message: `${section} ${enabled ? 'enabled' : 'disabled'} successfully`, enabled: config[section].enabled });
+  } catch (error) {
+    console.error('Error toggling section:', error);
+    res.status(500).json({ message: "Failed to toggle section", error: error.message });
+  }
+};
+
+// ========== ADD CUSTOM FIELD ==========
+export const addField = async (req, res) => {
+  try {
+    const { orgId, section } = req.params;
+    const fieldData = req.body;
+
+    if (!fieldData.key || !fieldData.label || !fieldData.type) {
+      return res.status(400).json({ message: "Field must have key, label, and type" });
+    }
+
+    const config = await OrganizationConfig.findOne({ orgId });
+    if (!config) return res.status(404).json({ message: "Configuration not found" });
+
+    const existingField = config[section]?.fields?.find(f => f.key === fieldData.key);
+    if (existingField) return res.status(400).json({ message: "Field with this key already exists" });
+
+    const newField = {
+      ...fieldData,
+      deletable: true,
+      editable: true,
+      order: (config[section]?.fields?.length || 0) + 1
+    };
+
+    const updatedConfig = await OrganizationConfig.findOneAndUpdate(
+      { orgId },
+      { $push: { [`${section}.fields`]: newField }, lastUpdatedBy: req.user?.id },
+      { new: true }
+    );
+
+    res.status(201).json({ message: "Field added successfully", field: newField, fields: updatedConfig[section].fields });
+  } catch (error) {
+    console.error('Error adding field:', error);
+    res.status(500).json({ message: "Failed to add field", error: error.message });
+  }
+};
+
+// ========== UPDATE FIELD ==========
+export const updateField = async (req, res) => {
+  try {
+    const { orgId, section, fieldId } = req.params;
     const updates = req.body;
 
-    if (!orgId) {
-      return res.status(400).json({
-        message: "Organization ID is required"
-      });
+    const config = await OrganizationConfig.findOne({ orgId });
+    if (!config) return res.status(404).json({ message: "Configuration not found" });
+
+    const fieldIndex = config[section]?.fields?.findIndex(f => f._id.toString() === fieldId);
+    if (fieldIndex === -1) return res.status(404).json({ message: "Field not found" });
+
+    const field = config[section].fields[fieldIndex];
+
+    if (!field.editable && updates.value !== undefined) {
+      return res.status(403).json({ message: "This field cannot be edited" });
     }
 
-    // Get updatedBy from request (in production, get from auth middleware)
-    const updatedBy = req.body.updatedBy || req.user?.id;
+    if (!field.deletable) {
+      delete updates.key;
+      delete updates.deletable;
+      delete updates.type;
+    }
 
-    const config = await OrganizationConfig.findOneAndUpdate(
-      { orgId },
-      { ...updates, lastUpdatedBy: updatedBy },
-      { new: true, upsert: true, runValidators: true }
-    );
-
-    res.status(200).json({
-      message: "Configuration updated successfully",
-      config
+    Object.keys(updates).forEach(key => {
+      config[section].fields[fieldIndex][key] = updates[key];
     });
+
+    config.lastUpdatedBy = req.user?.id;
+    await config.save();
+
+    res.status(200).json({ message: "Field updated successfully", field: config[section].fields[fieldIndex] });
   } catch (error) {
-    console.error('Error updating config:', error);
-    res.status(500).json({
-      message: "Failed to update configuration",
-      error: error.message
-    });
+    console.error('Error updating field:', error);
+    res.status(500).json({ message: "Failed to update field", error: error.message });
   }
 };
 
-// ========== UPDATE ATTENDANCE TIMING ==========
-// Route: PUT /api/config/:orgId/attendance-timing
-export const updateAttendanceTiming = async (req, res) => {
+// ========== DELETE FIELD ==========
+export const deleteField = async (req, res) => {
   try {
-    const { orgId } = req.params;
-    const { fullDayBefore, lateBefore, halfDayBefore } = req.body;
+    const { orgId, section, fieldId } = req.params;
 
-    if (!orgId) {
-      return res.status(400).json({
-        message: "Organization ID is required"
-      });
+    const config = await OrganizationConfig.findOne({ orgId });
+    if (!config) return res.status(404).json({ message: "Configuration not found" });
+
+    const field = config[section]?.fields?.find(f => f._id.toString() === fieldId);
+    if (!field) return res.status(404).json({ message: "Field not found" });
+
+    if (!field.deletable) {
+      return res.status(403).json({ message: "This is a core field and cannot be deleted" });
     }
 
-    const updates = { attendanceTiming: {} };
-    if (fullDayBefore) updates.attendanceTiming.fullDayBefore = fullDayBefore;
-    if (lateBefore) updates.attendanceTiming.lateBefore = lateBefore;
-    if (halfDayBefore) updates.attendanceTiming.halfDayBefore = halfDayBefore;
-
-    const config = await OrganizationConfig.findOneAndUpdate(
+    const updatedConfig = await OrganizationConfig.findOneAndUpdate(
       { orgId },
-      updates,
-      { new: true, runValidators: true }
+      { $pull: { [`${section}.fields`]: { _id: fieldId } }, lastUpdatedBy: req.user?.id },
+      { new: true }
     );
 
-    if (!config) {
-      return res.status(404).json({
-        message: "Configuration not found"
-      });
-    }
-
-    res.status(200).json({
-      message: "Attendance timing updated successfully",
-      attendanceTiming: config.attendanceTiming
-    });
+    res.status(200).json({ message: "Field deleted successfully", fields: updatedConfig[section].fields });
   } catch (error) {
-    console.error('Error updating attendance timing:', error);
-    res.status(500).json({
-      message: "Failed to update attendance timing",
-      error: error.message
-    });
+    console.error('Error deleting field:', error);
+    res.status(500).json({ message: "Failed to delete field", error: error.message });
   }
 };
 
-// ========== UPDATE DEDUCTION RULES ==========
-// Route: PUT /api/config/:orgId/deductions
-export const updateDeductions = async (req, res) => {
+// ========== REORDER FIELDS ==========
+export const reorderFields = async (req, res) => {
   try {
-    const { orgId } = req.params;
-    const { lateRule, halfDayRule } = req.body;
+    const { orgId, section } = req.params;
+    const { fieldOrders } = req.body;
 
-    if (!orgId) {
-      return res.status(400).json({
-        message: "Organization ID is required"
-      });
-    }
+    const config = await OrganizationConfig.findOne({ orgId });
+    if (!config) return res.status(404).json({ message: "Configuration not found" });
 
-    const updates = { deductions: {} };
-    if (lateRule) updates.deductions.lateRule = lateRule;
-    if (halfDayRule) updates.deductions.halfDayRule = halfDayRule;
-
-    const config = await OrganizationConfig.findOneAndUpdate(
-      { orgId },
-      updates,
-      { new: true, runValidators: true }
-    );
-
-    if (!config) {
-      return res.status(404).json({
-        message: "Configuration not found"
-      });
-    }
-
-    res.status(200).json({
-      message: "Deduction rules updated successfully",
-      deductions: config.deductions
+    fieldOrders.forEach(({ fieldId, order }) => {
+      const field = config[section].fields.find(f => f._id.toString() === fieldId);
+      if (field) field.order = order;
     });
+
+    config[section].fields.sort((a, b) => a.order - b.order);
+    await config.save();
+
+    res.status(200).json({ message: "Fields reordered successfully", fields: config[section].fields });
   } catch (error) {
-    console.error('Error updating deductions:', error);
-    res.status(500).json({
-      message: "Failed to update deduction rules",
-      error: error.message
-    });
+    console.error('Error reordering fields:', error);
+    res.status(500).json({ message: "Failed to reorder fields", error: error.message });
   }
 };
 
-// ========== UPDATE LEAVE POLICY ==========
-// Route: PUT /api/config/:orgId/leave-policy
-export const updateLeavePolicy = async (req, res) => {
+// ========== BULK UPDATE FIELD VALUES ==========
+export const bulkUpdateFieldValues = async (req, res) => {
   try {
-    const { orgId } = req.params;
-    const leavePolicyUpdates = req.body;
+    const { orgId, section } = req.params;
+    const { updates } = req.body;
 
-    if (!orgId) {
-      return res.status(400).json({
-        message: "Organization ID is required"
-      });
-    }
+    const config = await OrganizationConfig.findOne({ orgId });
+    if (!config) return res.status(404).json({ message: "Configuration not found" });
 
-    const config = await OrganizationConfig.findOneAndUpdate(
-      { orgId },
-      { leavePolicy: leavePolicyUpdates },
-      { new: true, runValidators: true }
-    );
-
-    if (!config) {
-      return res.status(404).json({
-        message: "Configuration not found"
-      });
-    }
-
-    res.status(200).json({
-      message: "Leave policy updated successfully",
-      leavePolicy: config.leavePolicy
+    updates.forEach(({ fieldId, value }) => {
+      const field = config[section].fields.find(f => f._id.toString() === fieldId || f.key === fieldId);
+      if (field && field.editable) field.value = value;
     });
+
+    config.lastUpdatedBy = req.user?.id;
+    await config.save();
+
+    res.status(200).json({ message: "Fields updated successfully", section: config[section] });
   } catch (error) {
-    console.error('Error updating leave policy:', error);
-    res.status(500).json({
-      message: "Failed to update leave policy",
-      error: error.message
-    });
+    console.error('Error bulk updating fields:', error);
+    res.status(500).json({ message: "Failed to update fields", error: error.message });
   }
 };
 
-// ========== UPDATE WORKING DAYS ==========
-// Route: PUT /api/config/:orgId/working-days
-export const updateWorkingDays = async (req, res) => {
+// ========== RESET SECTION TO DEFAULTS ==========
+export const resetSection = async (req, res) => {
   try {
-    const { orgId } = req.params;
-    const workingDaysUpdates = req.body;
+    const { orgId, section } = req.params;
 
-    if (!orgId) {
-      return res.status(400).json({
-        message: "Organization ID is required"
-      });
-    }
+    const defaultsMap = {
+      attendanceSettings: OrganizationConfig.getDefaultAttendanceFields(),
+      deductionSettings: OrganizationConfig.getDefaultDeductionFields(),
+      leaveSettings: OrganizationConfig.getDefaultLeaveFields(),
+      workingDaysSettings: OrganizationConfig.getDefaultWorkingDaysFields(),
+      qrSettings: OrganizationConfig.getDefaultQRFields(),
+      companyProfile: OrganizationConfig.getDefaultCompanyFields()
+    };
+
+    if (!defaultsMap[section]) return res.status(400).json({ message: "Invalid section" });
 
     const config = await OrganizationConfig.findOneAndUpdate(
       { orgId },
-      { workingDays: workingDaysUpdates },
-      { new: true, runValidators: true }
+      { $set: { [`${section}.fields`]: defaultsMap[section], [`${section}.enabled`]: true }, lastUpdatedBy: req.user?.id },
+      { new: true }
     );
 
-    if (!config) {
-      return res.status(404).json({
-        message: "Configuration not found"
-      });
-    }
-
-    res.status(200).json({
-      message: "Working days updated successfully",
-      workingDays: config.workingDays
-    });
+    res.status(200).json({ message: `${section} reset to defaults successfully`, section: config[section] });
   } catch (error) {
-    console.error('Error updating working days:', error);
-    res.status(500).json({
-      message: "Failed to update working days",
-      error: error.message
-    });
+    console.error('Error resetting section:', error);
+    res.status(500).json({ message: "Failed to reset section", error: error.message });
   }
 };
 
-// ========== UPDATE QR CODE SETTINGS ==========
-// Route: PUT /api/config/:orgId/qr-settings
-export const updateQRSettings = async (req, res) => {
+// ========== RESET ALL TO DEFAULTS ==========
+export const resetAllToDefaults = async (req, res) => {
   try {
     const { orgId } = req.params;
-    const qrSettingsUpdates = req.body;
-
-    if (!orgId) {
-      return res.status(400).json({
-        message: "Organization ID is required"
-      });
-    }
-
-    const config = await OrganizationConfig.findOneAndUpdate(
-      { orgId },
-      { qrCodeSettings: qrSettingsUpdates },
-      { new: true, runValidators: true }
-    );
-
-    if (!config) {
-      return res.status(404).json({
-        message: "Configuration not found"
-      });
-    }
-
-    res.status(200).json({
-      message: "QR code settings updated successfully",
-      qrCodeSettings: config.qrCodeSettings
-    });
-  } catch (error) {
-    console.error('Error updating QR settings:', error);
-    res.status(500).json({
-      message: "Failed to update QR code settings",
-      error: error.message
-    });
-  }
-};
-
-// ========== UPDATE GRACE PERIOD ==========
-// Route: PUT /api/config/:orgId/grace-period
-export const updateGracePeriod = async (req, res) => {
-  try {
-    const { orgId } = req.params;
-    const { enabled, minutes, description } = req.body;
-
-    if (!orgId) {
-      return res.status(400).json({
-        message: "Organization ID is required"
-      });
-    }
-
-    const updates = { gracePeriod: {} };
-    if (enabled !== undefined) updates.gracePeriod.enabled = enabled;
-    if (minutes !== undefined) updates.gracePeriod.minutes = minutes;
-    if (description) updates.gracePeriod.description = description;
-
-    const config = await OrganizationConfig.findOneAndUpdate(
-      { orgId },
-      updates,
-      { new: true, runValidators: true }
-    );
-
-    if (!config) {
-      return res.status(404).json({
-        message: "Configuration not found"
-      });
-    }
-
-    res.status(200).json({
-      message: "Grace period updated successfully",
-      gracePeriod: config.gracePeriod
-    });
-  } catch (error) {
-    console.error('Error updating grace period:', error);
-    res.status(500).json({
-      message: "Failed to update grace period",
-      error: error.message
-    });
-  }
-};
-
-// ========== RESET TO DEFAULTS ==========
-// Route: POST /api/config/:orgId/reset
-export const resetToDefaults = async (req, res) => {
-  try {
-    const { orgId } = req.params;
-
-    if (!orgId) {
-      return res.status(400).json({
-        message: "Organization ID is required"
-      });
-    }
-
-    // Delete existing config
     await OrganizationConfig.findOneAndDelete({ orgId });
-
-    // Create new default config
-    const config = await OrganizationConfig.create({ orgId });
-
-    res.status(200).json({
-      message: "Configuration reset to defaults successfully",
-      config
-    });
+    const config = await OrganizationConfig.getOrCreateConfig(orgId);
+    res.status(200).json({ message: "All settings reset to defaults successfully", config });
   } catch (error) {
-    console.error('Error resetting config:', error);
-    res.status(500).json({
-      message: "Failed to reset configuration",
-      error: error.message
-    });
+    console.error('Error resetting all:', error);
+    res.status(500).json({ message: "Failed to reset settings", error: error.message });
   }
 };
 
-// ========== GET ATTENDANCE STATUS FOR TIME ==========
-// Route: POST /api/config/:orgId/check-status
+// ========== UPLOAD COMPANY LOGO ==========
+export const uploadLogo = async (req, res) => {
+  try {
+    const { orgId } = req.params;
+    const { logo } = req.body;
+
+    const config = await OrganizationConfig.findOneAndUpdate(
+      { orgId },
+      { $set: { 'companyProfile.logo': logo } },
+      { new: true }
+    );
+
+    if (!config) return res.status(404).json({ message: "Configuration not found" });
+    res.status(200).json({ message: "Logo uploaded successfully", logo: config.companyProfile.logo });
+  } catch (error) {
+    console.error('Error uploading logo:', error);
+    res.status(500).json({ message: "Failed to upload logo", error: error.message });
+  }
+};
+
+// ========== TOGGLE BRANCH-SPECIFIC CONFIG ==========
+export const toggleBranchSpecific = async (req, res) => {
+  try {
+    const { orgId } = req.params;
+    const { enabled } = req.body;
+
+    const config = await OrganizationConfig.findOneAndUpdate(
+      { orgId },
+      { $set: { 'branchSpecificConfig.enabled': enabled } },
+      { new: true }
+    );
+
+    res.status(200).json({ message: `Branch-specific settings ${enabled ? 'enabled' : 'disabled'}`, branchSpecificConfig: config.branchSpecificConfig });
+  } catch (error) {
+    console.error('Error toggling branch config:', error);
+    res.status(500).json({ message: "Failed to toggle branch config", error: error.message });
+  }
+};
+
+// ========== UTILITY: CHECK ATTENDANCE STATUS ==========
 export const checkAttendanceStatus = async (req, res) => {
   try {
     const { orgId } = req.params;
     const { checkInTime } = req.body;
 
-    if (!orgId) {
-      return res.status(400).json({
-        message: "Organization ID is required"
-      });
-    }
+    const config = await OrganizationConfig.findOne({ orgId });
+    if (!config) return res.status(404).json({ message: "Configuration not found" });
 
-    if (!checkInTime) {
-      return res.status(400).json({
-        message: "Check-in time is required"
-      });
-    }
-
-    const config = await OrganizationConfig.getOrCreateConfig(orgId);
-    const status = config.getAttendanceStatus(checkInTime);
-
-    res.status(200).json({
-      checkInTime,
-      status,
-      config: {
-        fullDayBefore: config.attendanceTiming.fullDayBefore,
-        lateBefore: config.attendanceTiming.lateBefore,
-        halfDayBefore: config.attendanceTiming.halfDayBefore,
-        gracePeriod: config.gracePeriod
-      }
-    });
+    const status = config.getAttendanceStatus(checkInTime || new Date());
+    res.status(200).json({ message: "Status calculated", checkInTime: checkInTime || new Date(), status });
   } catch (error) {
-    console.error('Error checking attendance status:', error);
-    res.status(500).json({
-      message: "Failed to check attendance status",
-      error: error.message
-    });
+    console.error('Error checking status:', error);
+    res.status(500).json({ message: "Failed to check status", error: error.message });
   }
 };
 
-// ========== CALCULATE DEDUCTIONS ==========
-// Route: POST /api/config/:orgId/calculate-deductions
+// ========== UTILITY: CALCULATE DEDUCTIONS ==========
 export const calculateDeductions = async (req, res) => {
   try {
     const { orgId } = req.params;
     const { lateCount, halfDayCount } = req.body;
 
-    if (!orgId) {
-      return res.status(400).json({
-        message: "Organization ID is required"
-      });
-    }
+    const config = await OrganizationConfig.findOne({ orgId });
+    if (!config) return res.status(404).json({ message: "Configuration not found" });
 
-    if (lateCount === undefined || halfDayCount === undefined) {
-      return res.status(400).json({
-        message: "Late count and half-day count are required"
-      });
-    }
-
-    const config = await OrganizationConfig.getOrCreateConfig(orgId);
-    const deductions = config.calculateDeductions(lateCount, halfDayCount);
-
-    res.status(200).json({
-      lateCount,
-      halfDayCount,
-      totalDeductions: deductions,
-      rules: config.deductions
-    });
+    const deductions = config.calculateDeductions(lateCount || 0, halfDayCount || 0);
+    res.status(200).json({ message: "Deductions calculated", lateCount, halfDayCount, totalDeductions: deductions });
   } catch (error) {
     console.error('Error calculating deductions:', error);
-    res.status(500).json({
-      message: "Failed to calculate deductions",
-      error: error.message
-    });
+    res.status(500).json({ message: "Failed to calculate deductions", error: error.message });
   }
 };
