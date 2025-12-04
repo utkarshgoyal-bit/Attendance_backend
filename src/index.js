@@ -4,66 +4,57 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 import connectDB from "./config/db.js";
 
-// Import routes
-import employeeRoutes from "./routes/employeeRoutes.js";
-import salaryRoutes from "./routes/salaryRoutes.js";
-import salaryConfigRoutes from "./routes/salaryConfigRoutes.js";
-import attendanceRoutes from "./routes/attendanceRoutes.js";
-import configRoutes from "./routes/configRoutes.js";
-import leaveRoutes from "./routes/leaveRoutes.js";
-import branchRoutes from "./routes/branchRoutes.js";
-import authRoutes from "./routes/authRoutes.js";
-import salaryComponentRoutes from "./routes/salaryComponentRoutes.js";
-import employeeSalaryStructureRoutes from "./routes/employeeSalaryStructureRoutes.js"; // 👈 ADD THIS
-import statutoryTemplateRoutes from "./routes/statutoryTemplateRoutes.js";
-import salaryCalculationRoutes from "./routes/salaryCalculationRoutes.js";
-import salaryApprovalRoutes from "./routes/salaryApprovalRoutes.js";
-import salarySlipRoutes from "./routes/salarySlipRoutes.js"; // 👈 ADD THIS
-import organizationRoutes from "./routes/organizationRoutes.js";
-// Import middleware
-import { authenticate } from "./middleware/authMiddleware.js";
-
-dotenv.config();
-const app = express();
+// Import consolidated routes
+import authRoutes from "./routes/auth.routes.js";
+import employeeRoutes from "./routes/employee.routes.js";
+import attendanceRoutes from "./routes/attendance.routes.js";
+import leaveRoutes from "./routes/leave.routes.js";
+import salaryRoutes from "./routes/salary.routes.js";
+import configRoutes from "./routes/config.routes.js";
+import branchRoutes from "./routes/branch.routes.js";
+import organizationRoutes from "./routes/organization.routes.js";
 
 // Middleware
-app.use(express.json());
-app.use(cors({
-  origin: 'http://localhost:3000',
-  credentials: true
-}));
+import { authenticate } from "./middleware/auth.middleware.js";
+import { errorHandler } from "./middleware/error.middleware.js";
+
+dotenv.config();
+
+const app = express();
+
+// Core Middleware
+app.use(express.json({ limit: "10mb" }));
+app.use(cors({ origin: process.env.FRONTEND_URL || "http://localhost:3000", credentials: true }));
 app.use(cookieParser());
 
-// Connect to database
+// Database
 connectDB();
 
-// PUBLIC ROUTES (no authentication needed)
-app.use("/api/auth", authRoutes);
+// Health Check
+app.get("/api/health", (_, res) => res.json({ status: "OK", timestamp: new Date().toISOString() }));
 
-// PROTECTED ROUTES (authentication required)
+// Public Routes
+app.use("/api/auth", authRoutes);
+app.use("/api/attendance/qr", attendanceRoutes); // QR routes are public
+
+// Protected Routes
 app.use("/api/employees", authenticate, employeeRoutes);
-app.use("/api/salaries", authenticate, salaryRoutes);
-app.use("/api/salary-config", authenticate, salaryConfigRoutes);
 app.use("/api/attendance", authenticate, attendanceRoutes);
-app.use("/api/config", authenticate, configRoutes);
 app.use("/api/leaves", authenticate, leaveRoutes);
+app.use("/api/salaries", authenticate, salaryRoutes);
+app.use("/api/config", authenticate, configRoutes);
 app.use("/api/branches", authenticate, branchRoutes);
-app.use("/api/v2/salary-components", authenticate, salaryComponentRoutes);  // ✅ With authenticate
-app.use("/api/employee-salary-structure", authenticate, employeeSalaryStructureRoutes); // 👈 ADD THIS
-app.use("/api/statutory-templates", authenticate, statutoryTemplateRoutes);
-app.use("/api/salary-calculation", authenticate, salaryCalculationRoutes);
-app.use("/api/salary-approval", authenticate, salaryApprovalRoutes);
-app.use("/api/salary-slips", authenticate, salarySlipRoutes); // 👈 ADD THIS
 app.use("/api/organizations", authenticate, organizationRoutes);
 
-// Health check
-app.get("/api/health", (req, res) => {
-  res.json({ status: "OK", message: "Server is running" });
-});
+// Error Handler
+app.use(errorHandler);
+
+// 404 Handler
+app.use((_, res) => res.status(404).json({ message: "Route not found" }));
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
-  console.log(`\n✓ Server running on port ${PORT}`);
-  console.log(`✓ API: http://localhost:${PORT}/api`);
-  console.log(`✓ Health: http://localhost:${PORT}/api/health\n`);
+  console.log(`\n🚀 HR Backend v2.0 running on port ${PORT}`);
+  console.log(`📡 API: http://localhost:${PORT}/api`);
+  console.log(`💚 Health: http://localhost:${PORT}/api/health\n`);
 });
