@@ -66,7 +66,7 @@ const organizationSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 // Default leave types on create
-organizationSchema.pre('save', function(next) {
+organizationSchema.pre('save', function() {
   if (this.isNew && (!this.leaveConfig?.types || this.leaveConfig.types.length === 0)) {
     this.leaveConfig = {
       ...this.leaveConfig,
@@ -78,7 +78,6 @@ organizationSchema.pre('save', function(next) {
       ]
     };
   }
-  next();
 });
 
 module.exports = mongoose.model('Organization', organizationSchema);
