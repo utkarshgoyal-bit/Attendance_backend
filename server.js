@@ -23,6 +23,7 @@ app.use('/api/users', require('./routes/users'));
 app.use('/api/employees', require('./routes/employees'));
 app.use('/api/settings', require('./routes/settings'));
 app.use('/api/attendance', require('./routes/attendance'));
+app.use('/api/test', require('./routes/test'));
 
 // Health check
 app.get('/api/health', (req, res) => res.json({ status: 'ok', timestamp: new Date() }));
