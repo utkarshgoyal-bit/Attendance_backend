@@ -8,8 +8,8 @@ const userSchema = new mongoose.Schema({
   password: { type: String, required: true, select: false },
   role: { type: String, enum: ROLES, required: true },
   
-  orgId: { type: mongoose.Schema.Types.ObjectId, ref: 'Organization' },
-  employeeId: { type: mongoose.Schema.Types.ObjectId, ref: 'Employee' },
+  orgId: { type: mongoose.Schema.Types.ObjectId, ref: 'Organization', default: null },
+  employeeId: { type: mongoose.Schema.Types.ObjectId, ref: 'Employee', default: null },
   
   securityQuestions: [{
     question: String,
@@ -22,7 +22,7 @@ const userSchema = new mongoose.Schema({
   tokenVersion: { type: Number, default: 0 },
 }, { timestamps: true });
 
-// Hash password before save
+// Hash password before save - NO next() for bcryptjs 3.x
 userSchema.pre('save', async function() {
   if (!this.isModified('password')) return;
   this.password = await bcrypt.hash(this.password, 10);
@@ -45,5 +45,4 @@ userSchema.methods.canCreateRole = function(targetRole) {
   return hierarchy[this.role] > hierarchy[targetRole];
 };
 
-module.exports = mongoose.model('User', userSchema);
-module.exports.ROLES = ROLES;
+module.exports = mongoose.models.User || mongoose.model('User', userSchema);
