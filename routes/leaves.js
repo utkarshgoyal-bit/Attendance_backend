@@ -299,17 +299,39 @@ router.delete('/:id', auth, async (req, res) => {
   }
 });
 
-// GET Leave Balance for employee
-router.get('/balance/:employeeId?', auth, async (req, res) => {
+// GET Leave Balance for current employee
+router.get('/balance', auth, async (req, res) => {
   try {
-    let employeeId = req.params.employeeId;
+    const employee = await Employee.findOne({ userId: req.user._id, orgId: req.orgId });
+    if (!employee) return res.status(404).json({ message: 'Employee profile not found' });
     
-    // If no employeeId, get current user's employee profile
-    if (!employeeId) {
-      const employee = await Employee.findOne({ userId: req.user._id, orgId: req.orgId });
-      if (!employee) return res.status(404).json({ message: 'Employee profile not found' });
-      employeeId = employee._id;
-    }
+    const year = new Date().getFullYear();
+    const balance = await getOrCreateBalance(req.orgId, employee._id, year);
+    
+    // Convert Map to Object for JSON response
+    const balanceData = {
+      year,
+      balances: Object.fromEntries(balance.balances),
+      used: Object.fromEntries(balance.used),
+      carryForward: Object.fromEntries(balance.carryForward),
+      available: {}
+    };
+    
+    // Calculate available for each type
+    balance.balances.forEach((value, key) => {
+      balanceData.available[key] = balance.getAvailable(key);
+    });
+    
+    res.json({ balance: balanceData });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// GET Leave Balance for specific employee (HR/Admin only)
+router.get('/balance/:employeeId', auth, hrAdmin, async (req, res) => {
+  try {
+    const employeeId = req.params.employeeId;
     
     const year = new Date().getFullYear();
     const balance = await getOrCreateBalance(req.orgId, employeeId, year);
