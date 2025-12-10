@@ -1,39 +1,31 @@
-require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
-const cookieParser = require('cookie-parser');
+require('dotenv').config();
 
 const app = express();
 
 // Middleware
-app.use(cors({ origin: process.env.FRONTEND_URL || 'http://localhost:3000', credentials: true }));
+app.use(cors());
 app.use(express.json());
-app.use(cookieParser());
 
 // MongoDB Connection
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/hr_system')
+mongoose.connect(process.env.MONGODB_URI)
   .then(() => console.log('MongoDB Connected'))
   .catch(err => console.error('MongoDB Error:', err));
 
-// Routes
+// Routes - MAKE SURE ALL THESE ARE HERE
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/organizations', require('./routes/organizations'));
 app.use('/api/users', require('./routes/users'));
 app.use('/api/employees', require('./routes/employees'));
 app.use('/api/settings', require('./routes/settings'));
-app.use('/api/attendance', require('./routes/attendance'));  // ← ADD if missing
-app.use('/api/leaves', require('./routes/leaves'));          // ← ADD if missing
-app.use('/api/dashboard', require('./routes/dashboard'));    // ← ADD (NEW)
+app.use('/api/attendance', require('./routes/attendance'));  // ← ADD THIS
+app.use('/api/leaves', require('./routes/leaves'));          // ← ADD THIS
+app.use('/api/dashboard', require('./routes/dashboard'));    // ← ADD THIS
 
-// Health check
-app.get('/api/health', (req, res) => res.json({ status: 'ok', timestamp: new Date() }));
-
-// Error handler
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({ message: err.message || 'Server Error' });
-});
-
+// Start Server
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
