@@ -17,14 +17,14 @@ mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/hr_system
   .catch(err => console.error('MongoDB Error:', err));
 
 // Routes
-   app.use('/api/auth', require('./routes/auth'));
-   app.use('/api/organizations', require('./routes/organizations'));
-   app.use('/api/users', require('./routes/users'));
-   app.use('/api/employees', require('./routes/employees'));
-   app.use('/api/settings', require('./routes/settings'));
-   app.use('/api/attendance', require('./routes/attendance'));
-   app.use('/api/leaves', require('./routes/leaves'));  // <- NEW
-   app.use('/api/test', require('./routes/test'));
+app.use('/api/auth', require('./routes/auth'));
+app.use('/api/organizations', require('./routes/organizations'));
+app.use('/api/users', require('./routes/users'));
+app.use('/api/employees', require('./routes/employees'));
+app.use('/api/settings', require('./routes/settings'));
+app.use('/api/attendance', require('./routes/attendance'));  // ← ADD if missing
+app.use('/api/leaves', require('./routes/leaves'));          // ← ADD if missing
+app.use('/api/dashboard', require('./routes/dashboard'));    // ← ADD (NEW)
 
 // Health check
 app.get('/api/health', (req, res) => res.json({ status: 'ok', timestamp: new Date() }));
