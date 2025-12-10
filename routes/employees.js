@@ -1,342 +1,211 @@
 const router = require('express').Router();
 const Employee = require('../models/Employee');
 const User = require('../models/User');
-const { auth, hrAdmin, manager } = require('../middleware/auth');
+const { auth, hrAdmin } = require('../middleware/auth');
 const upload = require('../middleware/upload');
 const { uploadToCloudinary, deleteFromCloudinary } = require('../utils/cloudinary');
 
-// GET all employees
+// GET All Employees
 router.get('/', auth, async (req, res) => {
   try {
-    const { page = 1, limit = 20, search, department, status, branch } = req.query;
+    const { page = 1, limit = 25, search, department, status } = req.query;
+    
     const query = { orgId: req.orgId };
     
+    // Search filter
     if (search) {
       query.$or = [
-        { 'personal.firstName': { $regex: search, $options: 'i' } },
-        { 'personal.lastName': { $regex: search, $options: 'i' } },
-        { 'personal.email': { $regex: search, $options: 'i' } },
-        { eId: { $regex: search, $options: 'i' } },
+        { 'personal.firstName': new RegExp(search, 'i') },
+        { 'personal.lastName': new RegExp(search, 'i') },
+        { 'personal.email': new RegExp(search, 'i') },
+        { eId: new RegExp(search, 'i') }
       ];
     }
+    
+    // Department filter
     if (department) query['professional.department'] = department;
-    if (status) query['professional.status'] = status;
-    if (branch) query['professional.branch'] = branch;
     
-    // Manager can only see their team
-    if (req.user.role === 'MANAGER' && req.user.employeeId) {
-      query['professional.reportingManager'] = req.user.employeeId;
-    }
+    // Status filter
+    if (status) query.status = status;
     
+    const total = await Employee.countDocuments(query);
     const employees = await Employee.find(query)
       .populate('professional.department', 'name')
-      .populate('professional.branch', 'name')
-      .populate('professional.shift', 'name')
+      .populate('professional.designation', 'name')
       .populate('professional.reportingManager', 'personal.firstName personal.lastName eId')
       .skip((page - 1) * limit)
       .limit(parseInt(limit))
       .sort({ createdAt: -1 });
     
-    const total = await Employee.countDocuments(query);
-    
-    res.json({ employees, total, pages: Math.ceil(total / limit), page: parseInt(page) });
+    res.json({ 
+      employees, 
+      total, 
+      page: parseInt(page), 
+      pages: Math.ceil(total / limit) 
+    });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 });
 
-// GET single employee
+// GET Single Employee
 router.get('/:id', auth, async (req, res) => {
   try {
     const employee = await Employee.findOne({ _id: req.params.id, orgId: req.orgId })
       .populate('professional.department', 'name')
+      .populate('professional.designation', 'name')
       .populate('professional.branch', 'name')
       .populate('professional.shift', 'name startTime endTime')
       .populate('professional.reportingManager', 'personal.firstName personal.lastName eId');
     
-    if (!employee) return res.status(404).json({ message: 'Employee not found' });
-    
-    // Employee can only view their own profile
-    if (req.user.role === 'EMPLOYEE' && req.user.employeeId?.toString() !== employee._id.toString()) {
-      return res.status(403).json({ message: 'Access denied' });
+    if (!employee) {
+      return res.status(404).json({ message: 'Employee not found' });
     }
     
-    res.json(employee);
+    res.json({ employee });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 });
 
-// POST create employee
+// POST Create Employee
 router.post('/', auth, hrAdmin, async (req, res) => {
   try {
-    const { personal, professional, bank, createUser, password } = req.body;
+    const { personal, professional, statutory, banking, emergency, createUser } = req.body;
     
-    // Generate Employee ID if not provided
-    let eId = req.body.eId;
-    if (!eId) {
-      const count = await Employee.countDocuments({ orgId: req.orgId });
-      eId = `EMP${String(count + 1).padStart(4, '0')}`;
+    // Generate Employee ID
+    const lastEmployee = await Employee.findOne({ orgId: req.orgId }).sort({ eId: -1 });
+    let newEId = 'EMP001';
+    if (lastEmployee && lastEmployee.eId) {
+      const lastNum = parseInt(lastEmployee.eId.replace(/\D/g, ''));
+      newEId = 'EMP' + String(lastNum + 1).padStart(3, '0');
     }
     
-    // Check duplicate
-    const existing = await Employee.findOne({ 
-      orgId: req.orgId, 
-      $or: [{ eId }, { 'personal.email': personal.email }] 
-    });
-    if (existing) {
-      return res.status(400).json({ message: 'Employee ID or Email already exists' });
-    }
-    
+    // Create employee
     const employee = new Employee({
       orgId: req.orgId,
-      eId,
+      eId: newEId,
       personal,
       professional,
-      bank,
+      statutory,
+      banking,
+      emergency,
+      status: 'ACTIVE',
     });
+    
+    await employee.save();
     
     // Create user account if requested
     if (createUser && personal.email) {
-      const existingUser = await User.findOne({ email: personal.email });
-      if (existingUser) {
+      const userExists = await User.findOne({ email: personal.email });
+      if (userExists) {
         return res.status(400).json({ message: 'User with this email already exists' });
       }
       
-      const role = professional.reportingManager ? 'EMPLOYEE' : 'EMPLOYEE';
       const user = new User({
         email: personal.email,
-        password: password || 'Welcome@123',
-        role: req.body.role || 'EMPLOYEE',
+        password: 'Welcome@123', // Default password
+        role: 'EMPLOYEE',
         orgId: req.orgId,
         isFirstLogin: true,
+        hasSecurityQuestions: false,
       });
+      
       await user.save();
+      
+      // Link user to employee
       employee.userId = user._id;
+      await employee.save();
     }
     
-    await employee.save();
-    
-    res.status(201).json({ message: 'Employee created', employee });
+    res.status(201).json({ message: 'Employee created successfully', employee });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 });
 
-// PUT update employee
-router.put('/:id', auth, async (req, res) => {
+// PUT Update Employee
+router.put('/:id', auth, hrAdmin, async (req, res) => {
   try {
+    const { personal, professional, statutory, banking, emergency } = req.body;
+    
     const employee = await Employee.findOne({ _id: req.params.id, orgId: req.orgId });
-    if (!employee) return res.status(404).json({ message: 'Employee not found' });
-    
-    // Employee can only update limited fields
-    const isOwnProfile = req.user.employeeId?.toString() === employee._id.toString();
-    const isHrOrAbove = ['PLATFORM_ADMIN', 'ORG_ADMIN', 'HR_ADMIN'].includes(req.user.role);
-    
-    if (!isHrOrAbove && !isOwnProfile) {
-      return res.status(403).json({ message: 'Access denied' });
+    if (!employee) {
+      return res.status(404).json({ message: 'Employee not found' });
     }
     
-    const { personal, professional, bank, customFields } = req.body;
-    
-    if (isOwnProfile && !isHrOrAbove) {
-      // Limited self-edit
-      if (personal) {
-        employee.personal.phone = personal.phone || employee.personal.phone;
-        employee.personal.currentAddress = personal.currentAddress || employee.personal.currentAddress;
-        employee.personal.emergencyContact = personal.emergencyContact || employee.personal.emergencyContact;
-        employee.personal.photo = personal.photo || employee.personal.photo;
-      }
-      if (bank) {
-        employee.bank = { ...employee.bank, ...bank };
-      }
-    } else {
-      // Full edit for HR
-      if (personal) employee.personal = { ...employee.personal, ...personal };
-      if (professional) employee.professional = { ...employee.professional, ...professional };
-      if (bank) employee.bank = { ...employee.bank, ...bank };
-      if (customFields) employee.customFields = new Map(Object.entries(customFields));
-    }
+    // Update fields
+    if (personal) employee.personal = { ...employee.personal, ...personal };
+    if (professional) employee.professional = { ...employee.professional, ...professional };
+    if (statutory) employee.statutory = { ...employee.statutory, ...statutory };
+    if (banking) employee.banking = { ...employee.banking, ...banking };
+    if (emergency) employee.emergency = { ...employee.emergency, ...emergency };
     
     await employee.save();
-    res.json({ message: 'Employee updated', employee });
+    
+    res.json({ message: 'Employee updated successfully', employee });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 });
 
-// PATCH update status
+// PATCH Update Status
 router.patch('/:id/status', auth, hrAdmin, async (req, res) => {
   try {
     const { status } = req.body;
-    const employee = await Employee.findOneAndUpdate(
-      { _id: req.params.id, orgId: req.orgId },
-      { 'professional.status': status },
-      { new: true }
-    );
-    if (!employee) return res.status(404).json({ message: 'Employee not found' });
-    res.json({ message: 'Status updated', employee });
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-});
-
-// POST upload document
-router.post('/:id/documents', auth, async (req, res) => {
-  try {
-    const employee = await Employee.findOne({ _id: req.params.id, orgId: req.orgId });
-    if (!employee) return res.status(404).json({ message: 'Employee not found' });
     
-    const { type, name, url } = req.body;
-    employee.documents.push({ type, name, url });
+    const employee = await Employee.findOne({ _id: req.params.id, orgId: req.orgId });
+    if (!employee) {
+      return res.status(404).json({ message: 'Employee not found' });
+    }
+    
+    employee.status = status;
     await employee.save();
     
-    res.json({ message: 'Document uploaded', documents: employee.documents });
+    // If status is INACTIVE or EXITED, deactivate user account
+    if (['INACTIVE', 'EXITED'].includes(status) && employee.userId) {
+      await User.findByIdAndUpdate(employee.userId, { isActive: false });
+    }
+    
+    res.json({ message: 'Employee status updated', employee });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 });
 
-router.post('/:id/documents', auth, upload.single('file'), async (req, res) => {
-     try {
-       const { id } = req.params;
-       const { category, name } = req.body;
-       
-       if (!req.file) {
-         return res.status(400).json({ message: 'No file uploaded' });
-       }
-
-       const employee = await Employee.findOne({ _id: id, orgId: req.orgId });
-       if (!employee) {
-         return res.status(404).json({ message: 'Employee not found' });
-       }
-
-       // Upload to Cloudinary
-       const result = await uploadToCloudinary(
-         req.file.buffer,
-         `org-${req.orgId}/employees/${employee.eId}`,
-         category || 'general'
-       );
-
-       // Add document to employee
-       const document = {
-         name: name || req.file.originalname,
-         category: category || 'OTHER',
-         fileUrl: result.secure_url,
-         publicId: result.public_id,
-         fileType: req.file.mimetype,
-         fileSize: req.file.size,
-         uploadedAt: new Date(),
-       };
-
-       employee.documents.push(document);
-       await employee.save();
-
-       res.status(201).json({
-         message: 'Document uploaded successfully',
-         document: employee.documents[employee.documents.length - 1],
-       });
-     } catch (err) {
-       console.error('Document upload error:', err);
-       res.status(500).json({ message: err.message || 'Failed to upload document' });
-     }
-   });
-
-// DELETE document
-router.delete('/:id/documents/:docId', auth, hrAdmin, async (req, res) => {
-  try {
-    const employee = await Employee.findOne({ _id: req.params.id, orgId: req.orgId });
-    if (!employee) return res.status(404).json({ message: 'Employee not found' });
-    
-    employee.documents = employee.documents.filter(d => d._id.toString() !== req.params.docId);
-    await employee.save();
-    
-    res.json({ message: 'Document deleted' });
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-});
-
- // DELETE Document
-   router.delete('/:id/documents/:docId', auth, async (req, res) => {
-     try {
-       const { id, docId } = req.params;
-       
-       const employee = await Employee.findOne({ _id: id, orgId: req.orgId });
-       if (!employee) {
-         return res.status(404).json({ message: 'Employee not found' });
-       }
-
-       const document = employee.documents.id(docId);
-       if (!document) {
-         return res.status(404).json({ message: 'Document not found' });
-       }
-
-       // Delete from Cloudinary
-       if (document.publicId) {
-         try {
-           await deleteFromCloudinary(document.publicId);
-         } catch (cloudinaryError) {
-           console.error('Cloudinary deletion error:', cloudinaryError);
-         }
-       }
-
-       // Remove from employee
-       employee.documents.pull(docId);
-       await employee.save();
-
-       res.json({ message: 'Document deleted successfully' });
-     } catch (err) {
-       res.status(500).json({ message: err.message });
-     }
-   });
- // GET Employee documents
-   router.get('/:id/documents', auth, async (req, res) => {
-     try {
-       const { id } = req.params;
-       
-       const employee = await Employee.findOne({ _id: id, orgId: req.orgId }).select('documents');
-       if (!employee) {
-         return res.status(404).json({ message: 'Employee not found' });
-       }
-
-       res.json({ documents: employee.documents || [] });
-     } catch (err) {
-       res.status(500).json({ message: err.message });
-     }
-   });
-
-// POST initiate exit
+// POST Initiate Exit
 router.post('/:id/exit', auth, hrAdmin, async (req, res) => {
   try {
-    const { resignationDate, lastWorkingDate, reason } = req.body;
-    const employee = await Employee.findOneAndUpdate(
-      { _id: req.params.id, orgId: req.orgId },
-      { 
-        'professional.status': 'Notice Period',
-        'exit.resignationDate': resignationDate,
-        'exit.lastWorkingDate': lastWorkingDate,
-        'exit.reason': reason,
-        'exit.fnfStatus': 'Pending',
-      },
-      { new: true }
-    );
-    if (!employee) return res.status(404).json({ message: 'Employee not found' });
-    res.json({ message: 'Exit initiated', employee });
+    const { exitDate, reason, remarks } = req.body;
+    
+    const employee = await Employee.findOne({ _id: req.params.id, orgId: req.orgId });
+    if (!employee) {
+      return res.status(404).json({ message: 'Employee not found' });
+    }
+    
+    employee.status = 'NOTICE_PERIOD';
+    employee.professional.exitDate = exitDate;
+    employee.professional.exitReason = reason;
+    employee.professional.exitRemarks = remarks;
+    
+    await employee.save();
+    
+    res.json({ message: 'Exit process initiated', employee });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 });
 
-// DELETE (soft delete)
+// DELETE Soft Delete Employee
 router.delete('/:id', auth, hrAdmin, async (req, res) => {
   try {
-    const employee = await Employee.findOneAndUpdate(
-      { _id: req.params.id, orgId: req.orgId },
-      { isActive: false, 'professional.status': 'Terminated' },
-      { new: true }
-    );
-    if (!employee) return res.status(404).json({ message: 'Employee not found' });
+    const employee = await Employee.findOne({ _id: req.params.id, orgId: req.orgId });
+    if (!employee) {
+      return res.status(404).json({ message: 'Employee not found' });
+    }
+    
+    employee.isActive = false;
+    await employee.save();
     
     // Deactivate user account
     if (employee.userId) {
@@ -344,6 +213,107 @@ router.delete('/:id', auth, hrAdmin, async (req, res) => {
     }
     
     res.json({ message: 'Employee deactivated' });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// ========================================
+// DOCUMENT MANAGEMENT ROUTES
+// ========================================
+
+// POST Upload Document
+router.post('/:id/documents', auth, upload.single('file'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { category, name } = req.body;
+    
+    if (!req.file) {
+      return res.status(400).json({ message: 'No file uploaded' });
+    }
+
+    const employee = await Employee.findOne({ _id: id, orgId: req.orgId });
+    if (!employee) {
+      return res.status(404).json({ message: 'Employee not found' });
+    }
+
+    // Upload to Cloudinary
+    const result = await uploadToCloudinary(
+      req.file.buffer,
+      `org-${req.orgId}/employees/${employee.eId}`,
+      category || 'general'
+    );
+
+    // Add document to employee
+    const document = {
+      name: name || req.file.originalname,
+      category: category || 'OTHER',
+      fileUrl: result.secure_url,
+      publicId: result.public_id,
+      fileType: req.file.mimetype,
+      fileSize: req.file.size,
+      uploadedAt: new Date(),
+    };
+
+    employee.documents.push(document);
+    await employee.save();
+
+    res.status(201).json({
+      message: 'Document uploaded successfully',
+      document: employee.documents[employee.documents.length - 1],
+    });
+  } catch (err) {
+    console.error('Document upload error:', err);
+    res.status(500).json({ message: err.message || 'Failed to upload document' });
+  }
+});
+
+// GET Employee Documents
+router.get('/:id/documents', auth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const employee = await Employee.findOne({ _id: id, orgId: req.orgId }).select('documents');
+    if (!employee) {
+      return res.status(404).json({ message: 'Employee not found' });
+    }
+
+    res.json({ documents: employee.documents || [] });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// DELETE Document
+router.delete('/:id/documents/:docId', auth, async (req, res) => {
+  try {
+    const { id, docId } = req.params;
+    
+    const employee = await Employee.findOne({ _id: id, orgId: req.orgId });
+    if (!employee) {
+      return res.status(404).json({ message: 'Employee not found' });
+    }
+
+    const document = employee.documents.id(docId);
+    if (!document) {
+      return res.status(404).json({ message: 'Document not found' });
+    }
+
+    // Delete from Cloudinary
+    if (document.publicId) {
+      try {
+        await deleteFromCloudinary(document.publicId);
+      } catch (cloudinaryError) {
+        console.error('Cloudinary deletion error:', cloudinaryError);
+        // Continue anyway - remove from DB even if Cloudinary fails
+      }
+    }
+
+    // Remove from employee
+    employee.documents.pull(docId);
+    await employee.save();
+
+    res.json({ message: 'Document deleted successfully' });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

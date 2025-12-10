@@ -1,5 +1,4 @@
 const multer = require('multer');
-const path = require('path');
 
 // Configure multer for memory storage (we'll upload to Cloudinary from memory)
 const storage = multer.memoryStorage();
