@@ -2,6 +2,8 @@ const router = require('express').Router();
 const Employee = require('../models/Employee');
 const User = require('../models/User');
 const { auth, hrAdmin, manager } = require('../middleware/auth');
+const upload = require('../middleware/upload');
+const { uploadToCloudinary, deleteFromCloudinary } = require('../utils/cloudinary');
 
 // GET all employees
 router.get('/', auth, async (req, res) => {
@@ -195,6 +197,51 @@ router.post('/:id/documents', auth, async (req, res) => {
   }
 });
 
+router.post('/:id/documents', auth, upload.single('file'), async (req, res) => {
+     try {
+       const { id } = req.params;
+       const { category, name } = req.body;
+       
+       if (!req.file) {
+         return res.status(400).json({ message: 'No file uploaded' });
+       }
+
+       const employee = await Employee.findOne({ _id: id, orgId: req.orgId });
+       if (!employee) {
+         return res.status(404).json({ message: 'Employee not found' });
+       }
+
+       // Upload to Cloudinary
+       const result = await uploadToCloudinary(
+         req.file.buffer,
+         `org-${req.orgId}/employees/${employee.eId}`,
+         category || 'general'
+       );
+
+       // Add document to employee
+       const document = {
+         name: name || req.file.originalname,
+         category: category || 'OTHER',
+         fileUrl: result.secure_url,
+         publicId: result.public_id,
+         fileType: req.file.mimetype,
+         fileSize: req.file.size,
+         uploadedAt: new Date(),
+       };
+
+       employee.documents.push(document);
+       await employee.save();
+
+       res.status(201).json({
+         message: 'Document uploaded successfully',
+         document: employee.documents[employee.documents.length - 1],
+       });
+     } catch (err) {
+       console.error('Document upload error:', err);
+       res.status(500).json({ message: err.message || 'Failed to upload document' });
+     }
+   });
+
 // DELETE document
 router.delete('/:id/documents/:docId', auth, hrAdmin, async (req, res) => {
   try {
@@ -209,6 +256,55 @@ router.delete('/:id/documents/:docId', auth, hrAdmin, async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 });
+
+ // DELETE Document
+   router.delete('/:id/documents/:docId', auth, async (req, res) => {
+     try {
+       const { id, docId } = req.params;
+       
+       const employee = await Employee.findOne({ _id: id, orgId: req.orgId });
+       if (!employee) {
+         return res.status(404).json({ message: 'Employee not found' });
+       }
+
+       const document = employee.documents.id(docId);
+       if (!document) {
+         return res.status(404).json({ message: 'Document not found' });
+       }
+
+       // Delete from Cloudinary
+       if (document.publicId) {
+         try {
+           await deleteFromCloudinary(document.publicId);
+         } catch (cloudinaryError) {
+           console.error('Cloudinary deletion error:', cloudinaryError);
+         }
+       }
+
+       // Remove from employee
+       employee.documents.pull(docId);
+       await employee.save();
+
+       res.json({ message: 'Document deleted successfully' });
+     } catch (err) {
+       res.status(500).json({ message: err.message });
+     }
+   });
+ // GET Employee documents
+   router.get('/:id/documents', auth, async (req, res) => {
+     try {
+       const { id } = req.params;
+       
+       const employee = await Employee.findOne({ _id: id, orgId: req.orgId }).select('documents');
+       if (!employee) {
+         return res.status(404).json({ message: 'Employee not found' });
+       }
+
+       res.json({ documents: employee.documents || [] });
+     } catch (err) {
+       res.status(500).json({ message: err.message });
+     }
+   });
 
 // POST initiate exit
 router.post('/:id/exit', auth, hrAdmin, async (req, res) => {
