@@ -2,6 +2,16 @@ from django.contrib.auth.models import AbstractUser
 from django.db import models
 
 
+class Organization(models.Model):
+    name = models.CharField(max_length=200)
+    slug = models.SlugField(unique=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    def __str__(self):
+        return self.name
+
+
 class User(AbstractUser):
     class Role(models.TextChoices):
         SUPER_ADMIN = 'SUPER_ADMIN', 'Super Admin'
@@ -12,7 +22,7 @@ class User(AbstractUser):
     
     email = models.EmailField(unique=True)
     role = models.CharField(max_length=20, choices=Role.choices, default=Role.EMPLOYEE)
-    organization = models.ForeignKey('organizations.Organization', on_delete=models.CASCADE, null=True, blank=True, related_name='users')
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, null=True, blank=True)
     phone = models.CharField(max_length=20, blank=True)
     is_first_login = models.BooleanField(default=True)
     
@@ -21,13 +31,7 @@ class User(AbstractUser):
     
     @property
     def role_level(self):
-        levels = {
-            'SUPER_ADMIN': 5,
-            'ORG_ADMIN': 4,
-            'HR_ADMIN': 3,
-            'MANAGER': 2,
-            'EMPLOYEE': 1,
-        }
+        levels = {'SUPER_ADMIN': 5, 'ORG_ADMIN': 4, 'HR_ADMIN': 3, 'MANAGER': 2, 'EMPLOYEE': 1}
         return levels.get(self.role, 0)
     
     def __str__(self):

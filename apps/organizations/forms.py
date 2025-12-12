@@ -27,9 +27,8 @@ class OrganizationForm(forms.ModelForm):
 class DepartmentForm(forms.ModelForm):
     class Meta:
         model = Department
-        fields = ['organization', 'name', 'code', 'description', 'is_active']
+        fields = ['name', 'code', 'description', 'is_active']
         widgets = {
-            'organization': forms.Select(attrs={'class': 'w-full px-4 py-2 border rounded-lg'}),
             'name': forms.TextInput(attrs={'class': 'w-full px-4 py-2 border rounded-lg'}),
             'code': forms.TextInput(attrs={'class': 'w-full px-4 py-2 border rounded-lg'}),
             'description': forms.Textarea(attrs={'class': 'w-full px-4 py-2 border rounded-lg', 'rows': 3}),
@@ -39,9 +38,8 @@ class DepartmentForm(forms.ModelForm):
 class BranchForm(forms.ModelForm):
     class Meta:
         model = Branch
-        fields = ['organization', 'name', 'code', 'address', 'city', 'state', 'pincode', 'is_active']
+        fields = ['name', 'code', 'address', 'city', 'state', 'pincode', 'is_active']
         widgets = {
-            'organization': forms.Select(attrs={'class': 'w-full px-4 py-2 border rounded-lg'}),
             'name': forms.TextInput(attrs={'class': 'w-full px-4 py-2 border rounded-lg'}),
             'code': forms.TextInput(attrs={'class': 'w-full px-4 py-2 border rounded-lg'}),
             'address': forms.Textarea(attrs={'class': 'w-full px-4 py-2 border rounded-lg', 'rows': 2}),
@@ -54,9 +52,8 @@ class BranchForm(forms.ModelForm):
 class ShiftForm(forms.ModelForm):
     class Meta:
         model = Shift
-        fields = ['organization', 'name', 'code', 'start_time', 'end_time', 'grace_period_minutes', 'is_active']
+        fields = ['name', 'code', 'start_time', 'end_time', 'grace_period_minutes', 'is_active']
         widgets = {
-            'organization': forms.Select(attrs={'class': 'w-full px-4 py-2 border rounded-lg'}),
             'name': forms.TextInput(attrs={'class': 'w-full px-4 py-2 border rounded-lg'}),
             'code': forms.TextInput(attrs={'class': 'w-full px-4 py-2 border rounded-lg'}),
             'start_time': forms.TimeInput(attrs={'class': 'w-full px-4 py-2 border rounded-lg', 'type': 'time'}),
