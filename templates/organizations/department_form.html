@@ -11,7 +11,15 @@
             {% csrf_token %}
             
             <div>
-                <label class="block text-sm font-medium mb-1">Department Name</label>
+                <label class="block text-sm font-medium mb-1">Organization *</label>
+                {{ form.organization }}
+                {% if form.organization.errors %}
+                <p class="text-red-600 text-sm mt-1">{{ form.organization.errors.0 }}</p>
+                {% endif %}
+            </div>
+            
+            <div>
+                <label class="block text-sm font-medium mb-1">Department Name *</label>
                 {{ form.name }}
                 {% if form.name.errors %}
                 <p class="text-red-600 text-sm mt-1">{{ form.name.errors.0 }}</p>
@@ -19,7 +27,7 @@
             </div>
             
             <div>
-                <label class="block text-sm font-medium mb-1">Code</label>
+                <label class="block text-sm font-medium mb-1">Code *</label>
                 {{ form.code }}
                 {% if form.code.errors %}
                 <p class="text-red-600 text-sm mt-1">{{ form.code.errors.0 }}</p>

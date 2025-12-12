@@ -55,9 +55,9 @@ def organization_delete(request, pk):
 @role_required(['SUPER_ADMIN', 'ORG_ADMIN'])
 def department_list(request):
     if request.user.role == 'SUPER_ADMIN':
-        departments = Department.objects.all()
+        departments = Department.objects.all().select_related('organization')
     else:
-        departments = Department.objects.filter(organization=request.user.organization)
+        departments = Department.objects.filter(organization=request.user.organization).select_related('organization')
     return render(request, 'organizations/department_list.html', {'departments': departments})
 
 
@@ -70,11 +70,14 @@ def department_create(request):
             department = form.save(commit=False)
             if request.user.role != 'SUPER_ADMIN':
                 department.organization = request.user.organization
-            form.save()
+            department.save()
             messages.success(request, 'Department created successfully')
             return redirect('organizations:department_list')
     else:
         form = DepartmentForm()
+        if request.user.role != 'SUPER_ADMIN':
+            form.fields['organization'].initial = request.user.organization
+            form.fields['organization'].widget.attrs['disabled'] = True
     return render(request, 'organizations/department_form.html', {'form': form, 'action': 'Create'})
 
 
