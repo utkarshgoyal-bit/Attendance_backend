@@ -22,7 +22,7 @@ class User(AbstractUser):
     
     email = models.EmailField(unique=True)
     role = models.CharField(max_length=20, choices=Role.choices, default=Role.EMPLOYEE)
-    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, null=True, blank=True)
+    organization = models.ForeignKey('organizations.Organization', on_delete=models.CASCADE, null=True, blank=True, related_name='users')
     phone = models.CharField(max_length=20, blank=True)
     is_first_login = models.BooleanField(default=True)
     
