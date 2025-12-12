@@ -36,7 +36,7 @@ INSTALLED_APPS = [
     'django_htmx',
     'crispy_forms',
     'crispy_tailwind',
-    
+    'apps.organizations', 
     'apps.accounts',
 ]
 
