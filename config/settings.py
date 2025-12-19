@@ -38,8 +38,8 @@ INSTALLED_APPS = [
     'crispy_tailwind',
     'apps.organizations', 
     'apps.accounts',
+    'apps.employees',  # ADD THIS LINE
 ]
-
 AUTH_USER_MODEL = 'accounts.User'
 
 MIDDLEWARE = [
