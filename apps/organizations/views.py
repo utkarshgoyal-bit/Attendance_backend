@@ -70,7 +70,7 @@ def department_create(request):
             department = form.save(commit=False)
             if request.user.role != 'SUPER_ADMIN':
                 department.organization = request.user.organization
-            form.save()
+            department.save()
             messages.success(request, 'Department created successfully')
             return redirect('organizations:department_list')
     else:

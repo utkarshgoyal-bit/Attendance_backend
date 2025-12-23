@@ -25,9 +25,15 @@ class OrganizationForm(forms.ModelForm):
 
 
 class DepartmentForm(forms.ModelForm):
+    organization = forms.ModelChoiceField(
+        queryset=Organization.objects.filter(is_active=True),
+        required=True,
+        widget=forms.Select(attrs={'class': 'w-full px-4 py-2 border rounded-lg'})
+    )
+    
     class Meta:
         model = Department
-        fields = ['name', 'code', 'description', 'is_active']
+        fields = ['organization', 'name', 'code', 'description', 'is_active']
         widgets = {
             'name': forms.TextInput(attrs={'class': 'w-full px-4 py-2 border rounded-lg'}),
             'code': forms.TextInput(attrs={'class': 'w-full px-4 py-2 border rounded-lg'}),
