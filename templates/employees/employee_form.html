@@ -10,25 +10,47 @@
         <form method="post" class="space-y-4">
             {% csrf_token %}
             
+            {% if user.role == 'SUPER_ADMIN' %}
+            <div>
+                <label class="block text-sm font-medium mb-1">Organization</label>
+                {{ form.organization }}
+                {% if form.organization.errors %}
+                <p class="text-red-600 text-sm mt-1">{{ form.organization.errors.0 }}</p>
+                {% endif %}
+            </div>
+            {% endif %}
+            
             <div class="grid grid-cols-2 gap-4">
                 <div>
                     <label class="block text-sm font-medium mb-1">Employee ID</label>
                     {{ form.employee_id }}
+                    {% if form.employee_id.errors %}
+                    <p class="text-red-600 text-sm mt-1">{{ form.employee_id.errors.0 }}</p>
+                    {% endif %}
                 </div>
                 
                 <div>
                     <label class="block text-sm font-medium mb-1">First Name</label>
                     {{ form.first_name }}
+                    {% if form.first_name.errors %}
+                    <p class="text-red-600 text-sm mt-1">{{ form.first_name.errors.0 }}</p>
+                    {% endif %}
                 </div>
                 
                 <div>
                     <label class="block text-sm font-medium mb-1">Last Name</label>
                     {{ form.last_name }}
+                    {% if form.last_name.errors %}
+                    <p class="text-red-600 text-sm mt-1">{{ form.last_name.errors.0 }}</p>
+                    {% endif %}
                 </div>
                 
                 <div>
                     <label class="block text-sm font-medium mb-1">Phone</label>
                     {{ form.phone }}
+                    {% if form.phone.errors %}
+                    <p class="text-red-600 text-sm mt-1">{{ form.phone.errors.0 }}</p>
+                    {% endif %}
                 </div>
                 
                 <div>
@@ -59,11 +81,17 @@
                 <div>
                     <label class="block text-sm font-medium mb-1">Designation</label>
                     {{ form.designation }}
+                    {% if form.designation.errors %}
+                    <p class="text-red-600 text-sm mt-1">{{ form.designation.errors.0 }}</p>
+                    {% endif %}
                 </div>
                 
                 <div>
                     <label class="block text-sm font-medium mb-1">Date of Joining</label>
                     {{ form.date_of_joining }}
+                    {% if form.date_of_joining.errors %}
+                    <p class="text-red-600 text-sm mt-1">{{ form.date_of_joining.errors.0 }}</p>
+                    {% endif %}
                 </div>
                 
                 <div>

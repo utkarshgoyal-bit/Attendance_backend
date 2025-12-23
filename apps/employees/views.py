@@ -25,6 +25,12 @@ def employee_create(request):
         if form.is_valid():
             employee = form.save(commit=False)
             
+            # Set organization
+            if request.user.role == 'SUPER_ADMIN':
+                pass  # Already set from form
+            else:
+                employee.organization = request.user.organization
+
             # Create user account
             email = f"{form.cleaned_data['first_name'].lower()}.{form.cleaned_data['last_name'].lower()}@company.com"
             user = User.objects.create_user(
@@ -36,11 +42,14 @@ def employee_create(request):
             )
             employee.user = user
             employee.save()
-            
+
             messages.success(request, f'Employee created. Login: {email} / password123')
             return redirect('employees:employee_list')
     else:
         form = EmployeeForm()
+        if request.user.role != 'SUPER_ADMIN':
+            form.fields['organization'].initial = request.user.organization
+            form.fields['organization'].disabled = True
     return render(request, 'employees/employee_form.html', {'form': form, 'action': 'Create'})
 
 
