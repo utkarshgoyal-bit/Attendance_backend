@@ -1,10 +1,10 @@
 {% extends 'base.html' %}
 
-{% block title %}{{ action }} Department{% endblock %}
+{% block title %}{{ action }} Branch{% endblock %}
 
 {% block content %}
 <div class="max-w-2xl mx-auto">
-    <h1 class="text-3xl font-bold text-gray-800 mb-6">{{ action }} Department</h1>
+    <h1 class="text-3xl font-bold text-gray-800 mb-6">{{ action }} Branch</h1>
     
     <div class="bg-white p-6 rounded-lg shadow">
         <form method="post" class="space-y-4">
@@ -21,7 +21,7 @@
             {% endif %}
             
             <div>
-                <label class="block text-sm font-medium mb-1">Department Name</label>
+                <label class="block text-sm font-medium mb-1">Branch Name</label>
                 {{ form.name }}
                 {% if form.name.errors %}
                 <p class="text-red-600 text-sm mt-1">{{ form.name.errors.0 }}</p>
@@ -37,8 +37,23 @@
             </div>
             
             <div>
-                <label class="block text-sm font-medium mb-1">Description</label>
-                {{ form.description }}
+                <label class="block text-sm font-medium mb-1">Address</label>
+                {{ form.address }}
+            </div>
+            
+            <div class="grid grid-cols-3 gap-4">
+                <div>
+                    <label class="block text-sm font-medium mb-1">City</label>
+                    {{ form.city }}
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">State</label>
+                    {{ form.state }}
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">Pincode</label>
+                    {{ form.pincode }}
+                </div>
             </div>
             
             <div>
@@ -52,7 +67,7 @@
                 <button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700">
                     Save
                 </button>
-                <a href="{% url 'organizations:department_list' %}" class="bg-gray-300 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-400">
+                <a href="{% url 'organizations:branch_list' %}" class="bg-gray-300 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-400">
                     Cancel
                 </a>
             </div>

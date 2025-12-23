@@ -42,9 +42,15 @@ class DepartmentForm(forms.ModelForm):
 
 
 class BranchForm(forms.ModelForm):
+    organization = forms.ModelChoiceField(
+        queryset=Organization.objects.filter(is_active=True),
+        required=True,
+        widget=forms.Select(attrs={'class': 'w-full px-4 py-2 border rounded-lg'})
+    )
+    
     class Meta:
         model = Branch
-        fields = ['name', 'code', 'address', 'city', 'state', 'pincode', 'is_active']
+        fields = ['organization', 'name', 'code', 'address', 'city', 'state', 'pincode', 'is_active']
         widgets = {
             'name': forms.TextInput(attrs={'class': 'w-full px-4 py-2 border rounded-lg'}),
             'code': forms.TextInput(attrs={'class': 'w-full px-4 py-2 border rounded-lg'}),
@@ -56,9 +62,15 @@ class BranchForm(forms.ModelForm):
 
 
 class ShiftForm(forms.ModelForm):
+    organization = forms.ModelChoiceField(
+        queryset=Organization.objects.filter(is_active=True),
+        required=True,
+        widget=forms.Select(attrs={'class': 'w-full px-4 py-2 border rounded-lg'})
+    )
+    
     class Meta:
         model = Shift
-        fields = ['name', 'code', 'start_time', 'end_time', 'grace_period_minutes', 'is_active']
+        fields = ['organization', 'name', 'code', 'start_time', 'end_time', 'grace_period_minutes', 'is_active']
         widgets = {
             'name': forms.TextInput(attrs={'class': 'w-full px-4 py-2 border rounded-lg'}),
             'code': forms.TextInput(attrs={'class': 'w-full px-4 py-2 border rounded-lg'}),

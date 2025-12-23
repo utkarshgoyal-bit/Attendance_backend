@@ -68,13 +68,22 @@ def department_create(request):
         form = DepartmentForm(request.POST)
         if form.is_valid():
             department = form.save(commit=False)
-            if request.user.role != 'SUPER_ADMIN':
+            # Always set organization from form or user
+            if request.user.role == 'SUPER_ADMIN':
+                # SUPER_ADMIN selects organization from form
+                pass  # Already set from form
+            else:
+                # Other roles use their own organization
                 department.organization = request.user.organization
             department.save()
             messages.success(request, 'Department created successfully')
             return redirect('organizations:department_list')
     else:
         form = DepartmentForm()
+        # Pre-select organization for non-SUPER_ADMIN
+        if request.user.role != 'SUPER_ADMIN':
+            form.fields['organization'].initial = request.user.organization
+            form.fields['organization'].disabled = True
     return render(request, 'organizations/department_form.html', {'form': form, 'action': 'Create'})
 
 
@@ -100,3 +109,115 @@ def department_delete(request, pk):
     department.delete()
     messages.success(request, 'Department deleted successfully')
     return redirect('organizations:department_list')
+
+
+@login_required
+@role_required(['SUPER_ADMIN', 'ORG_ADMIN'])
+def branch_list(request):
+    if request.user.role == 'SUPER_ADMIN':
+        branches = Branch.objects.all()
+    else:
+        branches = Branch.objects.filter(organization=request.user.organization)
+    return render(request, 'organizations/branch_list.html', {'branches': branches})
+
+
+@login_required
+@role_required(['SUPER_ADMIN', 'ORG_ADMIN'])
+def branch_create(request):
+    if request.method == 'POST':
+        form = BranchForm(request.POST)
+        if form.is_valid():
+            branch = form.save(commit=False)
+            if request.user.role == 'SUPER_ADMIN':
+                pass  # Already set from form
+            else:
+                branch.organization = request.user.organization
+            branch.save()
+            messages.success(request, 'Branch created successfully')
+            return redirect('organizations:branch_list')
+    else:
+        form = BranchForm()
+        if request.user.role != 'SUPER_ADMIN':
+            form.fields['organization'].initial = request.user.organization
+            form.fields['organization'].disabled = True
+    return render(request, 'organizations/branch_form.html', {'form': form, 'action': 'Create'})
+
+
+@login_required
+@role_required(['SUPER_ADMIN', 'ORG_ADMIN'])
+def branch_edit(request, pk):
+    branch = get_object_or_404(Branch, pk=pk)
+    if request.method == 'POST':
+        form = BranchForm(request.POST, instance=branch)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Branch updated successfully')
+            return redirect('organizations:branch_list')
+    else:
+        form = BranchForm(instance=branch)
+    return render(request, 'organizations/branch_form.html', {'form': form, 'action': 'Edit'})
+
+
+@login_required
+@role_required(['SUPER_ADMIN', 'ORG_ADMIN'])
+def branch_delete(request, pk):
+    branch = get_object_or_404(Branch, pk=pk)
+    branch.delete()
+    messages.success(request, 'Branch deleted successfully')
+    return redirect('organizations:branch_list')
+
+
+@login_required
+@role_required(['SUPER_ADMIN', 'ORG_ADMIN'])
+def shift_list(request):
+    if request.user.role == 'SUPER_ADMIN':
+        shifts = Shift.objects.all()
+    else:
+        shifts = Shift.objects.filter(organization=request.user.organization)
+    return render(request, 'organizations/shift_list.html', {'shifts': shifts})
+
+
+@login_required
+@role_required(['SUPER_ADMIN', 'ORG_ADMIN'])
+def shift_create(request):
+    if request.method == 'POST':
+        form = ShiftForm(request.POST)
+        if form.is_valid():
+            shift = form.save(commit=False)
+            if request.user.role == 'SUPER_ADMIN':
+                pass  # Already set from form
+            else:
+                shift.organization = request.user.organization
+            shift.save()
+            messages.success(request, 'Shift created successfully')
+            return redirect('organizations:shift_list')
+    else:
+        form = ShiftForm()
+        if request.user.role != 'SUPER_ADMIN':
+            form.fields['organization'].initial = request.user.organization
+            form.fields['organization'].disabled = True
+    return render(request, 'organizations/shift_form.html', {'form': form, 'action': 'Create'})
+
+
+@login_required
+@role_required(['SUPER_ADMIN', 'ORG_ADMIN'])
+def shift_edit(request, pk):
+    shift = get_object_or_404(Shift, pk=pk)
+    if request.method == 'POST':
+        form = ShiftForm(request.POST, instance=shift)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Shift updated successfully')
+            return redirect('organizations:shift_list')
+    else:
+        form = ShiftForm(instance=shift)
+    return render(request, 'organizations/shift_form.html', {'form': form, 'action': 'Edit'})
+
+
+@login_required
+@role_required(['SUPER_ADMIN', 'ORG_ADMIN'])
+def shift_delete(request, pk):
+    shift = get_object_or_404(Shift, pk=pk)
+    shift.delete()
+    messages.success(request, 'Shift deleted successfully')
+    return redirect('organizations:shift_list')
