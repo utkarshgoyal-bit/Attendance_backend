@@ -1,12 +1,18 @@
-
 from django import forms
 from .models import Employee
+from apps.organizations.models import Organization
 
 
 class EmployeeForm(forms.ModelForm):
+    organization = forms.ModelChoiceField(
+        queryset=Organization.objects.filter(is_active=True),
+        required=True,
+        widget=forms.Select(attrs={'class': 'w-full px-4 py-2 border rounded-lg'})
+    )
+    
     class Meta:
         model = Employee
-        fields = ['employee_id', 'first_name', 'last_name', 'date_of_birth', 'gender',
+        fields = ['organization', 'employee_id', 'first_name', 'last_name', 'date_of_birth', 'gender',
                   'phone', 'department', 'branch', 'shift', 'designation', 
                   'date_of_joining', 'employment_status']
         widgets = {

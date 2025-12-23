@@ -1,8 +1,8 @@
-
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from apps.accounts.decorators import role_required
+from apps.accounts.models import User
 from .models import Employee
 from .forms import EmployeeForm
 
@@ -24,10 +24,20 @@ def employee_create(request):
         form = EmployeeForm(request.POST)
         if form.is_valid():
             employee = form.save(commit=False)
-            if request.user.role != 'SUPER_ADMIN':
-                employee.organization = request.user.organization
-            form.save()
-            messages.success(request, 'Employee created successfully')
+            
+            # Create user account
+            email = f"{form.cleaned_data['first_name'].lower()}.{form.cleaned_data['last_name'].lower()}@company.com"
+            user = User.objects.create_user(
+                username=form.cleaned_data['employee_id'],
+                email=email,
+                password='password123',
+                role='EMPLOYEE',
+                organization=employee.organization
+            )
+            employee.user = user
+            employee.save()
+            
+            messages.success(request, f'Employee created. Login: {email} / password123')
             return redirect('employees:employee_list')
     else:
         form = EmployeeForm()

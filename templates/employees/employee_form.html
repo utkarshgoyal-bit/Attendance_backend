@@ -1,0 +1,86 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ action }} Employee{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+    <h1 class="text-3xl font-bold text-gray-800 mb-6">{{ action }} Employee</h1>
+    
+    <div class="bg-white p-6 rounded-lg shadow">
+        <form method="post" class="space-y-4">
+            {% csrf_token %}
+            
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium mb-1">Employee ID</label>
+                    {{ form.employee_id }}
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium mb-1">First Name</label>
+                    {{ form.first_name }}
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium mb-1">Last Name</label>
+                    {{ form.last_name }}
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium mb-1">Phone</label>
+                    {{ form.phone }}
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium mb-1">Date of Birth</label>
+                    {{ form.date_of_birth }}
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium mb-1">Gender</label>
+                    {{ form.gender }}
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium mb-1">Department</label>
+                    {{ form.department }}
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium mb-1">Branch</label>
+                    {{ form.branch }}
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium mb-1">Shift</label>
+                    {{ form.shift }}
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium mb-1">Designation</label>
+                    {{ form.designation }}
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium mb-1">Date of Joining</label>
+                    {{ form.date_of_joining }}
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium mb-1">Employment Status</label>
+                    {{ form.employment_status }}
+                </div>
+            </div>
+            
+            <div class="flex gap-4 mt-6">
+                <button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700">
+                    Save
+                </button>
+                <a href="{% url 'employees:employee_list' %}" class="bg-gray-300 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-400">
+                    Cancel
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
