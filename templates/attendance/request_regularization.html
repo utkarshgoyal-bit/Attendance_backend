@@ -1,0 +1,52 @@
+{% extends 'base.html' %}
+
+{% block title %}Request Regularization{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+    <h1 class="text-3xl font-bold text-gray-900 mb-6">Request Regularization</h1>
+    
+    <div class="bg-white rounded-lg shadow p-6 mb-6">
+        <h2 class="text-lg font-semibold mb-4">Attendance Details</h2>
+        <div class="grid grid-cols-2 gap-4">
+            <div>
+                <p class="text-sm text-gray-600">Date</p>
+                <p class="font-medium">{{ attendance.date|date:"M d, Y" }}</p>
+            </div>
+            <div>
+                <p class="text-sm text-gray-600">Check In Time</p>
+                <p class="font-medium">{{ attendance.check_in_time|date:"h:i A"|default:"Not checked in" }}</p>
+            </div>
+            <div>
+                <p class="text-sm text-gray-600">Status</p>
+                <span class="px-2 py-1 text-xs font-medium rounded-full bg-orange-100 text-orange-800">
+                    {{ attendance.get_status_display }}
+                </span>
+            </div>
+            <div>
+                <p class="text-sm text-gray-600">Late By</p>
+                <p class="font-medium">{{ attendance.late_by_minutes }} minutes</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="bg-white rounded-lg shadow p-6">
+        <form method="post">
+            {% csrf_token %}
+            <div class="mb-4">
+                <label class="block text-sm font-medium mb-2">Reason for Regularization</label>
+                <textarea name="reason" rows="4" required class="w-full px-4 py-2 border rounded-lg" placeholder="Explain why you need regularization..."></textarea>
+            </div>
+            
+            <div class="flex gap-4">
+                <button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700">
+                    Submit Request
+                </button>
+                <a href="{% url 'attendance:history' %}" class="bg-gray-300 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-400">
+                    Cancel
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

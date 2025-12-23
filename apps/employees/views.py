@@ -1,6 +1,7 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
+from django.db import IntegrityError
 from apps.accounts.decorators import role_required
 from apps.accounts.models import User
 from .models import Employee
@@ -23,6 +24,12 @@ def employee_create(request):
     if request.method == 'POST':
         form = EmployeeForm(request.POST)
         if form.is_valid():
+            # Check if employee ID already exists
+            employee_id = form.cleaned_data['employee_id']
+            if User.objects.filter(username=employee_id).exists():
+                messages.error(request, f'Employee ID {employee_id} already exists. Please use a different ID.')
+                return render(request, 'employees/employee_form.html', {'form': form, 'action': 'Create'})
+            
             employee = form.save(commit=False)
             
             # Set organization
@@ -31,20 +38,32 @@ def employee_create(request):
             else:
                 employee.organization = request.user.organization
 
-            # Create user account
-            email = f"{form.cleaned_data['first_name'].lower()}.{form.cleaned_data['last_name'].lower()}@company.com"
-            user = User.objects.create_user(
-                username=form.cleaned_data['employee_id'],
-                email=email,
-                password='password123',
-                role='EMPLOYEE',
-                organization=employee.organization
-            )
-            employee.user = user
-            employee.save()
+            try:
+                # Create user account with organization domain
+                org_domain = employee.organization.name.lower().replace(' ', '')
+                email = f"{form.cleaned_data['first_name'].lower()}.{form.cleaned_data['last_name'].lower()}@{org_domain}.com"
+                
+                # Check if email already exists
+                if User.objects.filter(email=email).exists():
+                    messages.error(request, f'Email {email} already exists. Please use different names.')
+                    return render(request, 'employees/employee_form.html', {'form': form, 'action': 'Create'})
+                
+                user = User.objects.create_user(
+                    username=employee_id,
+                    email=email,
+                    password='password123',
+                    role='EMPLOYEE',
+                    organization=employee.organization
+                )
+                employee.user = user
+                employee.save()
 
-            messages.success(request, f'Employee created. Login: {email} / password123')
-            return redirect('employees:employee_list')
+                messages.success(request, f'Employee created successfully! Login: {email} / password123')
+                return redirect('employees:employee_list')
+                
+            except IntegrityError as e:
+                messages.error(request, f'Error creating employee: {str(e)}')
+                return render(request, 'employees/employee_form.html', {'form': form, 'action': 'Create'})
     else:
         form = EmployeeForm()
         if request.user.role != 'SUPER_ADMIN':

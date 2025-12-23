@@ -1,0 +1,80 @@
+{% extends 'base.html' %}
+
+{% block title %}Attendance Dashboard{% endblock %}
+
+{% block content %}
+<div class="mb-8">
+    <h1 class="text-3xl font-bold text-gray-900">Attendance Dashboard</h1>
+    <p class="text-gray-600 mt-2">{{ today_attendance.date|date:"l, F d, Y"|default:"Today" }}</p>
+</div>
+
+<!-- Check In/Out Card -->
+<div class="bg-white rounded-lg shadow p-6 mb-6">
+    <h2 class="text-xl font-semibold mb-4">Today's Attendance</h2>
+    
+    {% if today_attendance %}
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+            <div>
+                <p class="text-sm text-gray-600">Check In</p>
+                <p class="text-lg font-semibold">{{ today_attendance.check_in_time|date:"h:i A" }}</p>
+            </div>
+            <div>
+                <p class="text-sm text-gray-600">Check Out</p>
+                <p class="text-lg font-semibold">{{ today_attendance.check_out_time|date:"h:i A"|default:"Not checked out" }}</p>
+            </div>
+            <div>
+                <p class="text-sm text-gray-600">Status</p>
+                <span class="inline-block px-3 py-1 text-sm font-medium rounded-full
+                    {% if today_attendance.status == 'present' %}bg-green-100 text-green-800
+                    {% elif today_attendance.status == 'late' %}bg-yellow-100 text-yellow-800
+                    {% elif today_attendance.status == 'half_day' %}bg-orange-100 text-orange-800
+                    {% elif today_attendance.status == 'absent' %}bg-red-100 text-red-800
+                    {% else %}bg-blue-100 text-blue-800{% endif %}">
+                    {{ today_attendance.get_status_display }}
+                </span>
+            </div>
+        </div>
+        
+        {% if today_attendance.late_by_minutes > 0 %}
+        <p class="text-sm text-orange-600 mb-4">Late by {{ today_attendance.late_by_minutes }} minutes</p>
+        {% endif %}
+        
+        {% if not today_attendance.check_out_time %}
+        <a href="{% url 'attendance:checkout' %}" class="bg-red-600 text-white px-6 py-2 rounded-lg hover:bg-red-700">
+            Check Out
+        </a>
+        {% else %}
+        <p class="text-sm text-gray-600">Working Hours: {{ today_attendance.working_hours }} hours</p>
+        {% endif %}
+    {% else %}
+        <p class="text-gray-600 mb-4">You haven't checked in today</p>
+        <a href="{% url 'attendance:checkin' %}" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700">
+            Check In
+        </a>
+    {% endif %}
+</div>
+
+<!-- Monthly Summary -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+    <div class="bg-white rounded-lg shadow p-6">
+        <h3 class="text-sm text-gray-600 mb-2">Present Days</h3>
+        <p class="text-3xl font-bold text-green-600">{{ total_present }}</p>
+    </div>
+    
+    <div class="bg-white rounded-lg shadow p-6">
+        <h3 class="text-sm text-gray-600 mb-2">Absent Days</h3>
+        <p class="text-3xl font-bold text-red-600">{{ total_absent }}</p>
+    </div>
+    
+    <div class="bg-white rounded-lg shadow p-6">
+        <h3 class="text-sm text-gray-600 mb-2">Late Days</h3>
+        <p class="text-3xl font-bold text-yellow-600">{{ total_late }}</p>
+    </div>
+</div>
+
+<div class="mt-6">
+    <a href="{% url 'attendance:history' %}" class="text-blue-600 hover:text-blue-800">
+        View Full History ?
+    </a>
+</div>
+{% endblock %}

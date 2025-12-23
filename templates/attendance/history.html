@@ -1,0 +1,66 @@
+{% extends 'base.html' %}
+
+{% block title %}Attendance History{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <h1 class="text-3xl font-bold text-gray-900">Attendance History</h1>
+</div>
+
+<div class="bg-white rounded-lg shadow overflow-hidden">
+    <table class="min-w-full divide-y divide-gray-200">
+        <thead class="bg-gray-50">
+            <tr>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Check In</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Check Out</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Working Hours</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+            </tr>
+        </thead>
+        <tbody class="bg-white divide-y divide-gray-200">
+            {% for att in attendances %}
+            <tr>
+                <td class="px-6 py-4 whitespace-nowrap">{{ att.date|date:"M d, Y" }}</td>
+                <td class="px-6 py-4 whitespace-nowrap">{{ att.check_in_time|date:"h:i A"|default:"-" }}</td>
+                <td class="px-6 py-4 whitespace-nowrap">{{ att.check_out_time|date:"h:i A"|default:"-" }}</td>
+                <td class="px-6 py-4 whitespace-nowrap">{{ att.working_hours|default:"0" }} hrs</td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                    <span class="px-2 py-1 text-xs font-medium rounded-full
+                        {% if att.status == 'present' %}bg-green-100 text-green-800
+                        {% elif att.status == 'late' %}bg-yellow-100 text-yellow-800
+                        {% elif att.status == 'half_day' %}bg-orange-100 text-orange-800
+                        {% elif att.status == 'absent' %}bg-red-100 text-red-800
+                        {% else %}bg-blue-100 text-blue-800{% endif %}">
+                        {{ att.get_status_display }}
+                    </span>
+                    {% if att.is_regularized %}
+                    <span class="ml-2 text-xs text-green-600">(Regularized)</span>
+                    {% endif %}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm">
+                    {% if att.status in 'late,half_day,absent' and not att.regularization_status %}
+                    <a href="{% url 'attendance:request_regularization' att.pk %}" class="text-blue-600 hover:text-blue-800">
+                        Request Regularization
+                    </a>
+                    {% elif att.regularization_status == 'pending' %}
+                    <span class="text-yellow-600">Pending Approval</span>
+                    {% elif att.regularization_status == 'approved' %}
+                    <span class="text-green-600">Approved</span>
+                    {% elif att.regularization_status == 'rejected' %}
+                    <span class="text-red-600">Rejected</span>
+                    {% else %}
+                    -
+                    {% endif %}
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="6" class="px-6 py-4 text-center text-gray-500">No attendance records found</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

@@ -26,7 +26,8 @@ INSTALLED_APPS = [
     'crispy_tailwind',
     'apps.organizations', 
     'apps.accounts',
-    'apps.employees',  # ADD THIS LINE
+    'apps.employees',
+    'apps.attendance',  # ADD THIS LINE
 ]
 AUTH_USER_MODEL = 'accounts.User'
 
@@ -121,4 +122,5 @@ LOGIN_REDIRECT_URL = 'dashboard'
 LOGOUT_REDIRECT_URL = 'accounts:login'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
 

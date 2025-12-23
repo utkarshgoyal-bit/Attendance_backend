@@ -1,0 +1,58 @@
+{% extends 'base.html' %}
+
+{% block title %}Attendance List{% endblock %}
+
+{% block content %}
+<div class="flex justify-between items-center mb-6">
+    <h1 class="text-3xl font-bold text-gray-900">Attendance List</h1>
+    <form method="get" class="flex gap-2">
+        <input type="date" name="date" value="{{ date_filter }}" class="px-4 py-2 border rounded-lg">
+        <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
+            Filter
+        </button>
+    </form>
+</div>
+
+<div class="bg-white rounded-lg shadow overflow-hidden">
+    <table class="min-w-full divide-y divide-gray-200">
+        <thead class="bg-gray-50">
+            <tr>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Employee</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Check In</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Check Out</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Working Hours</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+            </tr>
+        </thead>
+        <tbody class="bg-white divide-y divide-gray-200">
+            {% for att in attendances %}
+            <tr>
+                <td class="px-6 py-4 whitespace-nowrap">
+                    {{ att.employee.first_name }} {{ att.employee.last_name }}
+                    <span class="text-xs text-gray-500">({{ att.employee.employee_id }})</span>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">{{ att.date|date:"M d, Y" }}</td>
+                <td class="px-6 py-4 whitespace-nowrap">{{ att.check_in_time|date:"h:i A"|default:"-" }}</td>
+                <td class="px-6 py-4 whitespace-nowrap">{{ att.check_out_time|date:"h:i A"|default:"-" }}</td>
+                <td class="px-6 py-4 whitespace-nowrap">{{ att.working_hours|default:"0" }} hrs</td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                    <span class="px-2 py-1 text-xs font-medium rounded-full
+                        {% if att.status == 'present' %}bg-green-100 text-green-800
+                        {% elif att.status == 'late' %}bg-yellow-100 text-yellow-800
+                        {% elif att.status == 'half_day' %}bg-orange-100 text-orange-800
+                        {% elif att.status == 'absent' %}bg-red-100 text-red-800
+                        {% else %}bg-blue-100 text-blue-800{% endif %}">
+                        {{ att.get_status_display }}
+                    </span>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="6" class="px-6 py-4 text-center text-gray-500">No attendance records found</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

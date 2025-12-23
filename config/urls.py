@@ -8,7 +8,8 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('accounts/', include('apps.accounts.urls')),
     path('organizations/', include('apps.organizations.urls')),
-    path('employees/', include('apps.employees.urls')),  # ADD THIS
+    path('employees/', include('apps.employees.urls')),
+    path('attendance/', include('apps.attendance.urls')),  # ADD THIS
     path('', dashboard, name='dashboard'),
 ]
 

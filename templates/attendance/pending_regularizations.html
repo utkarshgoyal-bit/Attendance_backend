@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+
+{% block title %}Pending Regularizations{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <h1 class="text-3xl font-bold text-gray-900">Pending Regularization Requests</h1>
+</div>
+
+<div class="bg-white rounded-lg shadow overflow-hidden">
+    <table class="min-w-full divide-y divide-gray-200">
+        <thead class="bg-gray-50">
+            <tr>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Employee</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Reason</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Requested At</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+            </tr>
+        </thead>
+        <tbody class="bg-white divide-y divide-gray-200">
+            {% for att in attendances %}
+            <tr>
+                <td class="px-6 py-4 whitespace-nowrap">
+                    {{ att.employee.first_name }} {{ att.employee.last_name }}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">{{ att.date|date:"M d, Y" }}</td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                    <span class="px-2 py-1 text-xs font-medium rounded-full bg-orange-100 text-orange-800">
+                        {{ att.get_status_display }}
+                    </span>
+                </td>
+                <td class="px-6 py-4">{{ att.regularization_reason }}</td>
+                <td class="px-6 py-4 whitespace-nowrap">{{ att.regularization_requested_at|date:"M d, h:i A" }}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm">
+                    <a href="{% url 'attendance:approve_regularization' att.pk %}" class="text-green-600 hover:text-green-800 mr-3">
+                        Approve
+                    </a>
+                    <a href="{% url 'attendance:reject_regularization' att.pk %}" class="text-red-600 hover:text-red-800">
+                        Reject
+                    </a>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="6" class="px-6 py-4 text-center text-gray-500">No pending requests</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
