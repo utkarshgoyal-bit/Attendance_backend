@@ -22,7 +22,7 @@ def employee_list(request):
 @role_required(['SUPER_ADMIN', 'ORG_ADMIN', 'HR_ADMIN'])
 def employee_create(request):
     if request.method == 'POST':
-        form = EmployeeForm(request.POST)
+        form = EmployeeForm(request.POST, user=request.user)
         if form.is_valid():
             # Check if employee ID already exists
             employee_id = form.cleaned_data['employee_id']
@@ -65,10 +65,7 @@ def employee_create(request):
                 messages.error(request, f'Error creating employee: {str(e)}')
                 return render(request, 'employees/employee_form.html', {'form': form, 'action': 'Create'})
     else:
-        form = EmployeeForm()
-        if request.user.role != 'SUPER_ADMIN':
-            form.fields['organization'].initial = request.user.organization
-            form.fields['organization'].disabled = True
+        form = EmployeeForm(user=request.user)
     return render(request, 'employees/employee_form.html', {'form': form, 'action': 'Create'})
 
 
@@ -77,13 +74,13 @@ def employee_create(request):
 def employee_edit(request, pk):
     employee = get_object_or_404(Employee, pk=pk)
     if request.method == 'POST':
-        form = EmployeeForm(request.POST, instance=employee)
+        form = EmployeeForm(request.POST, instance=employee, user=request.user)
         if form.is_valid():
             form.save()
             messages.success(request, 'Employee updated successfully')
             return redirect('employees:employee_list')
     else:
-        form = EmployeeForm(instance=employee)
+        form = EmployeeForm(instance=employee, user=request.user)
     return render(request, 'employees/employee_form.html', {'form': form, 'action': 'Edit'})
 
 
