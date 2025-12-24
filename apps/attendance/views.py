@@ -5,12 +5,10 @@ from django.utils import timezone
 from datetime import datetime, time, timedelta
 from apps.accounts.decorators import role_required
 from apps.employees.models import Employee
-from .models import Attendance
-from django.http import HttpResponse
-from datetime import timedelta
-from .models import QRToken
+from apps.organizations.models import Organization, Branch
+from .models import Attendance, QRToken
 from .qr_utils import generate_qr_token, generate_qr_code
-from apps.organizations.models import Organization
+
 
 @login_required
 def attendance_dashboard(request):
@@ -254,102 +252,303 @@ def reject_regularization(request, pk):
         return redirect('attendance:pending_regularizations')
     
     return render(request, 'attendance/reject_regularization.html', {'attendance': attendance})
+
+
 @login_required
 @role_required(['SUPER_ADMIN', 'ORG_ADMIN', 'HR_ADMIN'])
 def generate_qr_view(request):
-    """Generate QR code for organization"""
+    """Generate QR code for branch"""
+    
+    # Get organization and branches
     if request.user.role == 'SUPER_ADMIN':
-        # Need to select organization
         if request.method == 'POST':
-            org_id = request.POST.get('organization')
-            org = Organization.objects.get(pk=org_id)
+            branch_id = request.POST.get('branch')
+            branch = Branch.objects.select_related('organization').get(pk=branch_id)
+            org = branch.organization
         else:
-            orgs = Organization.objects.filter(is_active=True)
-            return render(request, 'attendance/select_org_qr.html', {'organizations': orgs})
+            branches = Branch.objects.filter(is_active=True).select_related('organization')
+            return render(request, 'attendance/select_branch_qr.html', {'branches': branches})
     else:
         org = request.user.organization
+        if request.method == 'POST':
+            branch_id = request.POST.get('branch')
+            branch = Branch.objects.get(pk=branch_id, organization=org)
+        else:
+            branches = Branch.objects.filter(organization=org, is_active=True)
+            return render(request, 'attendance/select_branch_qr.html', {'branches': branches})
     
     # Generate token
     token = generate_qr_token()
-    expires_at = timezone.now() + timedelta(hours=24)
+    refresh_interval = org.qr_refresh_interval  # Get from org settings
+    expires_at = timezone.now() + timedelta(minutes=refresh_interval)
     
-    # Save token
+    # Deactivate old tokens for this branch
+    QRToken.objects.filter(branch=branch, is_active=True).update(is_active=False)
+    
+    # Save new token
     QRToken.objects.create(
         token=token,
         organization=org,
+        branch=branch,
         expires_at=expires_at
     )
     
-    # Generate QR code
-    qr_image = generate_qr_code(token)
+    # Generate QR code with branch info
+    base_url = request.build_absolute_uri('/')[:-1]  # Remove trailing slash
+    qr_image = generate_qr_code(token, base_url)
     
     # Return image
+    from django.http import HttpResponse
     response = HttpResponse(qr_image.read(), content_type='image/png')
-    response['Content-Disposition'] = f'inline; filename="qr_{org.slug}.png"'
+    response['Content-Disposition'] = f'inline; filename="qr_{branch.code}_{token[:8]}.png"'
     return response
 
 
 @login_required
 def qr_checkin(request):
-    """Check-in via QR code scan"""
-    if not hasattr(request.user, 'employee'):
-        return render(request, 'attendance/qr_scan.html', {'error': 'Not an employee'})
+    """Check-in via QR code scan with employee ID and geo-location"""
     
+    token = request.GET.get('token')
+    
+    if not token:
+        return render(request, 'attendance/qr_scan.html', {'error': 'Invalid QR code'})
+    
+    # Validate QR token
+    try:
+        qr_token = QRToken.objects.select_related('organization', 'branch').get(token=token)
+    except QRToken.DoesNotExist:
+        return render(request, 'attendance/qr_scan.html', {'error': 'Invalid QR code'})
+    
+    if not qr_token.is_valid():
+        return render(request, 'attendance/qr_scan.html', {
+            'error': 'QR code expired. Please ask reception to refresh the QR code.'
+        })
+    
+    organization = qr_token.organization
+    branch = qr_token.branch
+    
+    # Handle POST request
     if request.method == 'POST':
-        token = request.POST.get('token')
+        employee_id = request.POST.get('employee_id')
+        user_lat = request.POST.get('latitude')
+        user_lon = request.POST.get('longitude')
         
+        if not employee_id:
+            return render(request, 'attendance/qr_scan.html', {
+                'token': token,
+                'branch': branch,
+                'error': 'Please enter your Employee ID'
+            })
+        
+        # Find employee
         try:
-            qr_token = QRToken.objects.get(token=token)
+            employee = Employee.objects.select_related('user', 'shift', 'branch').get(
+                employee_id=employee_id, 
+                organization=organization, 
+                is_active=True
+            )
+        except Employee.DoesNotExist:
+            return render(request, 'attendance/qr_scan.html', {
+                'token': token,
+                'branch': branch,
+                'error': f'Employee ID "{employee_id}" not found'
+            })
+        
+        # Check if already checked in
+        today = timezone.now().date()
+        if Attendance.objects.filter(employee=employee, date=today).exists():
+            return render(request, 'attendance/qr_scan.html', {
+                'token': token,
+                'branch': branch,
+                'error': 'You have already checked in today'
+            })
+        
+        # Validate geo-location using BRANCH location
+        if organization.require_geo_validation:
+            if not user_lat or not user_lon:
+                return render(request, 'attendance/qr_scan.html', {
+                    'token': token,
+                    'branch': branch,
+                    'error': 'Location access required. Please enable location.'
+                })
             
-            if not qr_token.is_valid():
-                return render(request, 'attendance/qr_scan.html', {'error': 'QR code expired'})
+            # Use branch location
+            office_lat = branch.latitude
+            office_lon = branch.longitude
+            radius = branch.geo_fence_radius if branch.geo_fence_radius else organization.geo_fence_radius
             
-            employee = request.user.employee
+            if not office_lat or not office_lon:
+                return render(request, 'attendance/qr_scan.html', {
+                    'token': token,
+                    'branch': branch,
+                    'error': f'{branch.name} location not configured. Contact HR.'
+                })
             
-            if employee.organization != qr_token.organization:
-                return render(request, 'attendance/qr_scan.html', {'error': 'Invalid QR code for your organization'})
+            from .geo_utils import is_within_geofence
             
-            # Perform check-in
-            today = timezone.now().date()
-            now = timezone.now()
-            
-            if Attendance.objects.filter(employee=employee, date=today).exists():
-                return render(request, 'attendance/qr_scan.html', {'error': 'Already checked in today'})
-            
-            # Get shift and calculate status
-            if not employee.shift:
-                return render(request, 'attendance/qr_scan.html', {'error': 'No shift assigned'})
-            
-            shift = employee.shift
-            shift_start = datetime.combine(today, shift.start_time)
-            shift_start = timezone.make_aware(shift_start)
-            
-            late_minutes = max(0, int((now - shift_start).total_seconds() / 60))
-            
-            if late_minutes <= shift.grace_period_minutes:
-                status = 'present'
-            elif late_minutes <= 120:
-                status = 'late'
-            else:
-                status = 'half_day'
-            
-            # Create attendance
-            Attendance.objects.create(
-                employee=employee,
-                date=today,
-                check_in_time=now,
-                check_in_method='qr',
-                status=status,
-                late_by_minutes=late_minutes if status in ['late', 'half_day'] else 0
+            within_fence, distance = is_within_geofence(
+                float(user_lat), float(user_lon),
+                float(office_lat), float(office_lon),
+                radius
             )
             
+            if not within_fence:
+                return render(request, 'attendance/qr_scan.html', {
+                    'token': token,
+                    'branch': branch,
+                    'error': f'You are {int(distance)}m away. Must be within {radius}m of {branch.name}.'
+                })
+        
+        # Check shift
+        if not employee.shift:
+            return render(request, 'attendance/qr_scan.html', {
+                'token': token,
+                'branch': branch,
+                'error': 'No shift assigned. Contact HR.'
+            })
+        
+        # Calculate status
+        now = timezone.now()
+        shift = employee.shift
+        shift_start = datetime.combine(today, shift.start_time)
+        shift_start = timezone.make_aware(shift_start)
+        
+        late_minutes = max(0, int((now - shift_start).total_seconds() / 60))
+        
+        if late_minutes <= shift.grace_period_minutes:
+            status = 'present'
+        elif late_minutes <= 120:
+            status = 'late'
+        else:
+            status = 'half_day'
+        
+        # Check if approval required (only for EMPLOYEE role)
+        user = employee.user
+        requires_approval = (
+            user.role == 'EMPLOYEE' and 
+            organization.require_approval_for_employees
+        )
+        
+        if requires_approval:
+            status = 'pending_approval'
+        
+        # Create attendance
+        Attendance.objects.create(
+            employee=employee,
+            date=today,
+            check_in_time=now,
+            check_in_method='qr',
+            status=status,
+            late_by_minutes=late_minutes if status in ['late', 'half_day'] else 0,
+            check_in_latitude=user_lat if user_lat else None,
+            check_in_longitude=user_lon if user_lon else None,
+            requires_approval=requires_approval
+        )
+        
+        # Success
+        if requires_approval:
             return render(request, 'attendance/qr_scan.html', {
                 'success': True,
-                'status': status,
-                'time': now.strftime("%I:%M %p")
+                'branch': branch,
+                'message': 'Check-in request sent for approval',
+                'time': now.strftime("%I:%M %p"),
+                'status': 'Pending Approval'
             })
-            
-        except QRToken.DoesNotExist:
-            return render(request, 'attendance/qr_scan.html', {'error': 'Invalid QR code'})
+        else:
+            return render(request, 'attendance/qr_scan.html', {
+                'success': True,
+                'branch': branch,
+                'message': 'Check-in successful!',
+                'time': now.strftime("%I:%M %p"),
+                'status': status.replace('_', ' ').title()
+            })
     
-    return render(request, 'attendance/qr_scan.html')
+    # GET request
+    return render(request, 'attendance/qr_scan.html', {
+        'token': token,
+        'branch': branch
+    })
+
+
+@login_required
+@role_required(['SUPER_ADMIN', 'ORG_ADMIN', 'HR_ADMIN', 'MANAGER'])
+def pending_checkin_approvals(request):
+    """View pending check-in requests"""
+    if request.user.role == 'MANAGER':
+        manager_employee = request.user.employee
+        team_employees = Employee.objects.filter(reporting_manager=manager_employee)
+        attendances = Attendance.objects.filter(
+            employee__in=team_employees,
+            status='pending_approval'
+        )
+    else:
+        attendances = Attendance.objects.filter(
+            employee__organization=request.user.organization,
+            status='pending_approval'
+        )
+    
+    attendances = attendances.select_related('employee').order_by('-check_in_time')
+    
+    return render(request, 'attendance/pending_checkin_approvals.html', {'attendances': attendances})
+
+
+@login_required
+@role_required(['SUPER_ADMIN', 'ORG_ADMIN', 'HR_ADMIN', 'MANAGER'])
+def approve_checkin(request, pk):
+    """Approve check-in request"""
+    attendance = get_object_or_404(Attendance, pk=pk)
+    
+    # Recalculate status based on time
+    shift = attendance.employee.shift
+    today = attendance.date
+    shift_start = datetime.combine(today, shift.start_time)
+    shift_start = timezone.make_aware(shift_start)
+    
+    late_minutes = max(0, int((attendance.check_in_time - shift_start).total_seconds() / 60))
+    
+    if late_minutes <= shift.grace_period_minutes:
+        status = 'present'
+    elif late_minutes <= 120:
+        status = 'late'
+    else:
+        status = 'half_day'
+    
+    attendance.status = status
+    attendance.approved_by = request.user
+    attendance.approved_at = timezone.now()
+    attendance.save()
+    
+    messages.success(request, f'Check-in approved for {attendance.employee.first_name} {attendance.employee.last_name}')
+    return redirect('attendance:pending_checkin_approvals')
+
+
+@login_required
+@role_required(['SUPER_ADMIN', 'ORG_ADMIN', 'HR_ADMIN', 'MANAGER'])
+def reject_checkin(request, pk):
+    """Reject check-in request"""
+    attendance = get_object_or_404(Attendance, pk=pk)
+    attendance.delete()
+    
+    messages.success(request, f'Check-in rejected for {attendance.employee.first_name} {attendance.employee.last_name}')
+    return redirect('attendance:pending_checkin_approvals')
+
+
+@login_required
+@role_required(['SUPER_ADMIN', 'ORG_ADMIN', 'HR_ADMIN'])
+def qr_display(request, branch_id):
+    """Display QR code on screen with auto-refresh"""
+    branch = get_object_or_404(Branch, pk=branch_id)
+    
+    # Check permission
+    if request.user.role != 'SUPER_ADMIN' and branch.organization != request.user.organization:
+        messages.error(request, 'Access denied')
+        return redirect('dashboard')
+    
+    org = branch.organization
+    refresh_interval = org.qr_refresh_interval * 60 * 1000  # Convert to milliseconds
+    
+    return render(request, 'attendance/qr_display.html', {
+        'branch': branch,
+        'organization': org,
+        'refresh_interval': refresh_interval
+    })

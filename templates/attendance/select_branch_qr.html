@@ -1,0 +1,57 @@
+{% extends 'base.html' %}
+
+{% block title %}Select Branch for QR Code{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+    <h1 class="text-3xl font-bold text-gray-900 mb-6">Select Branch for QR Code</h1>
+    
+    <div class="bg-white rounded-lg shadow">
+        <div class="p-6">
+            <form method="post" action="{% url 'attendance:generate_qr' %}">
+                {% csrf_token %}
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-2">Branch</label>
+                    <select name="branch" required class="w-full px-4 py-2 border rounded-lg">
+                        <option value="">Select Branch</option>
+                        {% for branch in branches %}
+                        <option value="{{ branch.pk }}">
+                            {{ branch.name }} - {{ branch.organization.name }}
+                            {% if branch.latitude and branch.longitude %}
+                            ✓ Location Set
+                            {% else %}
+                            ⚠️ No Location
+                            {% endif %}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="flex gap-4">
+                    <button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700">
+                        Generate QR for Download
+                    </button>
+                </div>
+            </form>
+            
+            <div class="mt-6 pt-6 border-t">
+                <h2 class="text-lg font-semibold mb-4">Or Display on Screen (Auto-Refresh)</h2>
+                <div class="grid grid-cols-1 gap-3">
+                    {% for branch in branches %}
+                    <a href="{% url 'attendance:qr_display' branch.pk %}" 
+                       class="block p-4 border rounded-lg hover:bg-gray-50">
+                        <div class="flex justify-between items-center">
+                            <div>
+                                <p class="font-medium">{{ branch.name }}</p>
+                                <p class="text-sm text-gray-600">{{ branch.organization.name }}</p>
+                            </div>
+                            <span class="text-blue-600">Open Display →</span>
+                        </div>
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

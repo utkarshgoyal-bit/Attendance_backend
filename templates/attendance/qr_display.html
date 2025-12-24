@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QR Check-in - {{ branch.name }}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gradient-to-br from-blue-500 to-indigo-600 min-h-screen flex items-center justify-center">
+    <div class="text-center">
+        <!-- Header -->
+        <div class="bg-white rounded-t-3xl p-8 shadow-2xl">
+            {% if organization.logo %}
+            <img src="{{ organization.logo.url }}" alt="{{ organization.name }}" class="h-20 mx-auto mb-4">
+            {% endif %}
+            <h1 class="text-3xl font-bold text-gray-800">{{ organization.name }}</h1>
+            <h2 class="text-xl text-gray-600 mt-2">{{ branch.name }}</h2>
+            <p class="text-lg text-gray-500 mt-4">Scan to Check In</p>
+        </div>
+        
+        <!-- QR Code -->
+        <div class="bg-white p-8 shadow-2xl">
+            <div id="qrContainer" class="bg-gray-100 p-8 rounded-2xl inline-block">
+                <img id="qrImage" src="{% url 'attendance:generate_qr' %}?branch={{ branch.pk }}" 
+                     alt="QR Code" class="w-96 h-96 mx-auto">
+            </div>
+            
+            <p class="text-sm text-gray-500 mt-6">
+                QR code refreshes every {{ organization.qr_refresh_interval }} minutes
+            </p>
+            <p class="text-xs text-gray-400 mt-2" id="lastRefresh">
+                Last refreshed: <span id="refreshTime">Just now</span>
+            </p>
+        </div>
+        
+        <!-- Footer -->
+        <div class="bg-white rounded-b-3xl p-6 shadow-2xl">
+            <div class="flex items-center justify-center gap-6 text-sm text-gray-600">
+                <div>
+                    <span class="font-semibold">📍</span> Location Verified
+                </div>
+                <div>
+                    <span class="font-semibold">⏰</span> Auto Check-in
+                </div>
+                <div>
+                    <span class="font-semibold">✓</span> Secure
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        const refreshInterval = {{ refresh_interval }};
+        const branchId = {{ branch.pk }};
+        
+        function refreshQR() {
+            const timestamp = new Date().getTime();
+            const qrImage = document.getElementById('qrImage');
+            qrImage.src = `/attendance/qr/generate/?branch=${branchId}&t=${timestamp}`;
+            
+            const now = new Date();
+            document.getElementById('refreshTime').textContent = now.toLocaleTimeString();
+        }
+        
+        // Auto-refresh QR code
+        setInterval(refreshQR, refreshInterval);
+        
+        // Update time display every second
+        setInterval(() => {
+            const now = new Date();
+            document.getElementById('refreshTime').textContent = now.toLocaleTimeString();
+        }, 1000);
+    </script>
+</body>
+</html>

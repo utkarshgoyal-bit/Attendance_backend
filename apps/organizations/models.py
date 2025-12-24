@@ -24,10 +24,17 @@ class Organization(models.Model):
     financial_year_start = models.IntegerField(default=4)
     week_off_days = models.JSONField(default=list)
     
+    # GEO-FENCE SETTINGS
+    geo_fence_radius = models.IntegerField(default=50)  # meters
+    require_geo_validation = models.BooleanField(default=True)
+    require_approval_for_employees = models.BooleanField(default=True)
+    
+    # QR REFRESH SETTINGS - ADD THIS
+    qr_refresh_interval = models.IntegerField(default=5)  # minutes
+    
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    
     
     def save(self, *args, **kwargs):
         if not self.slug:
@@ -65,6 +72,12 @@ class Branch(models.Model):
     city = models.CharField(max_length=100, blank=True)
     state = models.CharField(max_length=100, blank=True)
     pincode = models.CharField(max_length=10, blank=True)
+    
+    # GEO-LOCATION - ADD THESE IF NOT PRESENT
+    latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    geo_fence_radius = models.IntegerField(default=50)  # Can override org-level radius
+    
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     

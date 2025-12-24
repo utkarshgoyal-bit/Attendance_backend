@@ -7,7 +7,7 @@ class OrganizationForm(forms.ModelForm):
         model = Organization
         fields = ['name', 'logo', 'address_line1', 'address_line2', 'city', 
                   'state', 'pincode', 'country', 'email', 'phone', 'website',
-                  'gst_number', 'pan_number', 'is_active']
+                  'gst_number', 'pan_number', 'qr_refresh_interval', 'is_active']
         widgets = {
             'name': forms.TextInput(attrs={'class': 'w-full px-4 py-2 border rounded-lg'}),
             'address_line1': forms.TextInput(attrs={'class': 'w-full px-4 py-2 border rounded-lg'}),
@@ -21,6 +21,7 @@ class OrganizationForm(forms.ModelForm):
             'website': forms.URLInput(attrs={'class': 'w-full px-4 py-2 border rounded-lg'}),
             'gst_number': forms.TextInput(attrs={'class': 'w-full px-4 py-2 border rounded-lg'}),
             'pan_number': forms.TextInput(attrs={'class': 'w-full px-4 py-2 border rounded-lg'}),
+            'qr_refresh_interval': forms.NumberInput(attrs={'class': 'w-full px-4 py-2 border rounded-lg'}),
         }
 
 
@@ -50,7 +51,8 @@ class BranchForm(forms.ModelForm):
     
     class Meta:
         model = Branch
-        fields = ['organization', 'name', 'code', 'address', 'city', 'state', 'pincode', 'is_active']
+        fields = ['organization', 'name', 'code', 'address', 'city', 'state', 'pincode', 
+                  'latitude', 'longitude', 'geo_fence_radius', 'is_active']
         widgets = {
             'name': forms.TextInput(attrs={'class': 'w-full px-4 py-2 border rounded-lg'}),
             'code': forms.TextInput(attrs={'class': 'w-full px-4 py-2 border rounded-lg'}),
@@ -58,6 +60,9 @@ class BranchForm(forms.ModelForm):
             'city': forms.TextInput(attrs={'class': 'w-full px-4 py-2 border rounded-lg'}),
             'state': forms.TextInput(attrs={'class': 'w-full px-4 py-2 border rounded-lg'}),
             'pincode': forms.TextInput(attrs={'class': 'w-full px-4 py-2 border rounded-lg'}),
+            'latitude': forms.NumberInput(attrs={'class': 'w-full px-4 py-2 border rounded-lg', 'step': '0.000001'}),
+            'longitude': forms.NumberInput(attrs={'class': 'w-full px-4 py-2 border rounded-lg', 'step': '0.000001'}),
+            'geo_fence_radius': forms.NumberInput(attrs={'class': 'w-full px-4 py-2 border rounded-lg'}),
         }
 
 

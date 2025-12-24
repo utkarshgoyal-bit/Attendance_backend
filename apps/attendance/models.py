@@ -62,6 +62,7 @@ class Attendance(models.Model):
 class QRToken(models.Model):
     token = models.CharField(max_length=64, unique=True)
     organization = models.ForeignKey('organizations.Organization', on_delete=models.CASCADE)
+    branch = models.ForeignKey('organizations.Branch', on_delete=models.CASCADE)  # ADD THIS
     created_at = models.DateTimeField(auto_now_add=True)
     expires_at = models.DateTimeField()
     is_active = models.BooleanField(default=True)
@@ -71,4 +72,7 @@ class QRToken(models.Model):
         return self.is_active and self.expires_at > timezone.now()
     
     def __str__(self):
-        return f"QR Token - {self.organization.name}"
+        return f"QR Token - {self.branch.name} ({self.organization.name})"
+    
+    class Meta:
+        ordering = ['-created_at']

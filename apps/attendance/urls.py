@@ -15,4 +15,10 @@ urlpatterns = [
     path('<int:pk>/reject/', views.reject_regularization, name='reject_regularization'),
     path('qr/generate/', views.generate_qr_view, name='generate_qr'),
     path('qr/scan/', views.qr_checkin, name='qr_checkin'),
+    path('qr/generate/', views.generate_qr_view, name='generate_qr'),
+    path('qr/display/<int:branch_id>/', views.qr_display, name='qr_display'),
+    path('qr/scan/', views.qr_checkin, name='qr_checkin'),
+    path('checkin/pending/', views.pending_checkin_approvals, name='pending_checkin_approvals'),
+    path('checkin/<int:pk>/approve/', views.approve_checkin, name='approve_checkin'),
+    path('checkin/<int:pk>/reject/', views.reject_checkin, name='reject_checkin'),
 ]
