@@ -57,3 +57,18 @@ class Attendance(models.Model):
     
     def __str__(self):
         return f"{self.employee.first_name} {self.employee.last_name} - {self.date} - {self.status}"
+
+
+class QRToken(models.Model):
+    token = models.CharField(max_length=64, unique=True)
+    organization = models.ForeignKey('organizations.Organization', on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    is_active = models.BooleanField(default=True)
+    
+    def is_valid(self):
+        from django.utils import timezone
+        return self.is_active and self.expires_at > timezone.now()
+    
+    def __str__(self):
+        return f"QR Token - {self.organization.name}"

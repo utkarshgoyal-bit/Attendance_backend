@@ -13,4 +13,6 @@ urlpatterns = [
     path('pending/', views.pending_regularizations, name='pending_regularizations'),
     path('<int:pk>/approve/', views.approve_regularization, name='approve_regularization'),
     path('<int:pk>/reject/', views.reject_regularization, name='reject_regularization'),
+    path('qr/generate/', views.generate_qr_view, name='generate_qr'),
+    path('qr/scan/', views.qr_checkin, name='qr_checkin'),
 ]

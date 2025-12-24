@@ -6,7 +6,11 @@ from datetime import datetime, time, timedelta
 from apps.accounts.decorators import role_required
 from apps.employees.models import Employee
 from .models import Attendance
-
+from django.http import HttpResponse
+from datetime import timedelta
+from .models import QRToken
+from .qr_utils import generate_qr_token, generate_qr_code
+from apps.organizations.models import Organization
 
 @login_required
 def attendance_dashboard(request):
@@ -250,3 +254,102 @@ def reject_regularization(request, pk):
         return redirect('attendance:pending_regularizations')
     
     return render(request, 'attendance/reject_regularization.html', {'attendance': attendance})
+@login_required
+@role_required(['SUPER_ADMIN', 'ORG_ADMIN', 'HR_ADMIN'])
+def generate_qr_view(request):
+    """Generate QR code for organization"""
+    if request.user.role == 'SUPER_ADMIN':
+        # Need to select organization
+        if request.method == 'POST':
+            org_id = request.POST.get('organization')
+            org = Organization.objects.get(pk=org_id)
+        else:
+            orgs = Organization.objects.filter(is_active=True)
+            return render(request, 'attendance/select_org_qr.html', {'organizations': orgs})
+    else:
+        org = request.user.organization
+    
+    # Generate token
+    token = generate_qr_token()
+    expires_at = timezone.now() + timedelta(hours=24)
+    
+    # Save token
+    QRToken.objects.create(
+        token=token,
+        organization=org,
+        expires_at=expires_at
+    )
+    
+    # Generate QR code
+    qr_image = generate_qr_code(token)
+    
+    # Return image
+    response = HttpResponse(qr_image.read(), content_type='image/png')
+    response['Content-Disposition'] = f'inline; filename="qr_{org.slug}.png"'
+    return response
+
+
+@login_required
+def qr_checkin(request):
+    """Check-in via QR code scan"""
+    if not hasattr(request.user, 'employee'):
+        return render(request, 'attendance/qr_scan.html', {'error': 'Not an employee'})
+    
+    if request.method == 'POST':
+        token = request.POST.get('token')
+        
+        try:
+            qr_token = QRToken.objects.get(token=token)
+            
+            if not qr_token.is_valid():
+                return render(request, 'attendance/qr_scan.html', {'error': 'QR code expired'})
+            
+            employee = request.user.employee
+            
+            if employee.organization != qr_token.organization:
+                return render(request, 'attendance/qr_scan.html', {'error': 'Invalid QR code for your organization'})
+            
+            # Perform check-in
+            today = timezone.now().date()
+            now = timezone.now()
+            
+            if Attendance.objects.filter(employee=employee, date=today).exists():
+                return render(request, 'attendance/qr_scan.html', {'error': 'Already checked in today'})
+            
+            # Get shift and calculate status
+            if not employee.shift:
+                return render(request, 'attendance/qr_scan.html', {'error': 'No shift assigned'})
+            
+            shift = employee.shift
+            shift_start = datetime.combine(today, shift.start_time)
+            shift_start = timezone.make_aware(shift_start)
+            
+            late_minutes = max(0, int((now - shift_start).total_seconds() / 60))
+            
+            if late_minutes <= shift.grace_period_minutes:
+                status = 'present'
+            elif late_minutes <= 120:
+                status = 'late'
+            else:
+                status = 'half_day'
+            
+            # Create attendance
+            Attendance.objects.create(
+                employee=employee,
+                date=today,
+                check_in_time=now,
+                check_in_method='qr',
+                status=status,
+                late_by_minutes=late_minutes if status in ['late', 'half_day'] else 0
+            )
+            
+            return render(request, 'attendance/qr_scan.html', {
+                'success': True,
+                'status': status,
+                'time': now.strftime("%I:%M %p")
+            })
+            
+        except QRToken.DoesNotExist:
+            return render(request, 'attendance/qr_scan.html', {'error': 'Invalid QR code'})
+    
+    return render(request, 'attendance/qr_scan.html')

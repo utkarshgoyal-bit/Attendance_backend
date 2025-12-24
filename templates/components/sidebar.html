@@ -6,13 +6,13 @@
         <a href="{% url 'dashboard' %}" class="flex items-center px-4 py-3 hover:bg-gray-700">
             Dashboard
         </a>
-        
+
         {% if user.role == 'SUPER_ADMIN' %}
         <a href="{% url 'organizations:organization_list' %}" class="flex items-center px-4 py-3 hover:bg-gray-700">
             Organizations
         </a>
         {% endif %}
-        
+
         {% if user.role in 'SUPER_ADMIN,ORG_ADMIN,HR_ADMIN' %}
         <a href="{% url 'organizations:department_list' %}" class="flex items-center px-4 py-3 hover:bg-gray-700">
             Departments
@@ -27,18 +27,27 @@
             Employees
         </a>
         {% endif %}
-        
+
         <!-- Attendance Section -->
         <a href="{% url 'attendance:dashboard' %}" class="flex items-center px-4 py-3 hover:bg-gray-700">
             My Attendance
         </a>
-        
+
         {% if user.role in 'SUPER_ADMIN,ORG_ADMIN,HR_ADMIN,MANAGER' %}
         <a href="{% url 'attendance:list' %}" class="flex items-center px-4 py-3 hover:bg-gray-700">
             All Attendance
         </a>
         <a href="{% url 'attendance:pending_regularizations' %}" class="flex items-center px-4 py-3 hover:bg-gray-700">
             Pending Approvals
+        </a>
+        {% endif %}
+        <a href="{% url 'attendance:qr_checkin' %}" class="flex items-center px-4 py-3 hover:bg-gray-700">
+            QR Check-in
+        </a>
+
+        {% if user.role in 'SUPER_ADMIN,ORG_ADMIN,HR_ADMIN' %}
+        <a href="{% url 'attendance:generate_qr' %}" class="flex items-center px-4 py-3 hover:bg-gray-700">
+            Generate QR
         </a>
         {% endif %}
     </nav>

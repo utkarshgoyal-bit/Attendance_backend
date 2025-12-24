@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+
+{% block title %}Generate QR Code{% endblock %}
+
+{% block content %}
+<div class="max-w-md mx-auto">
+    <h1 class="text-3xl font-bold text-gray-900 mb-6">Generate QR Code</h1>
+    
+    <div class="bg-white rounded-lg shadow p-6">
+        <form method="post">
+            {% csrf_token %}
+            <div class="mb-4">
+                <label class="block text-sm font-medium mb-2">Select Organization</label>
+                <select name="organization" required class="w-full px-4 py-2 border rounded-lg">
+                    <option value="">---------</option>
+                    {% for org in organizations %}
+                    <option value="{{ org.pk }}">{{ org.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <button type="submit" class="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700">
+                Generate QR Code
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}

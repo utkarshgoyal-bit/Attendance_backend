@@ -28,6 +28,7 @@ class Organization(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
+    
     def save(self, *args, **kwargs):
         if not self.slug:
             self.slug = slugify(self.name)
