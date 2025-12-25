@@ -2,6 +2,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.utils import timezone
+from django.http import HttpResponse  # ADD THIS LINE HERE
 from datetime import datetime, time, timedelta
 from apps.accounts.decorators import role_required
 from apps.employees.models import Employee
@@ -293,12 +294,12 @@ def generate_qr_view(request):
         expires_at=expires_at
     )
     
-    # Generate QR code with branch info
+    # Generate QR code with branch info (INDENT THIS PROPERLY)
     base_url = request.build_absolute_uri('/')[:-1]  # Remove trailing slash
-    qr_image = generate_qr_code(token, base_url)
+    url = f"{base_url}/attendance/qr/scan/?token={token}"
+    qr_image = generate_qr_code(url)
     
     # Return image
-    from django.http import HttpResponse
     response = HttpResponse(qr_image.read(), content_type='image/png')
     response['Content-Disposition'] = f'inline; filename="qr_{branch.code}_{token[:8]}.png"'
     return response

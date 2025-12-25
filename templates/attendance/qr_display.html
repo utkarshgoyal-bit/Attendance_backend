@@ -1,3 +1,4 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -6,8 +7,8 @@
     <title>QR Check-in - {{ branch.name }}</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-gradient-to-br from-blue-500 to-indigo-600 min-h-screen flex items-center justify-center">
-    <div class="text-center">
+<body class="bg-gradient-to-br from-blue-500 to-indigo-600 min-h-screen flex items-center justify-center p-4">
+    <div class="text-center max-w-2xl w-full">
         <!-- Header -->
         <div class="bg-white rounded-t-3xl p-8 shadow-2xl">
             {% if organization.logo %}
@@ -21,15 +22,19 @@
         <!-- QR Code -->
         <div class="bg-white p-8 shadow-2xl">
             <div id="qrContainer" class="bg-gray-100 p-8 rounded-2xl inline-block">
-                <img id="qrImage" src="{% url 'attendance:generate_qr' %}?branch={{ branch.pk }}" 
-                     alt="QR Code" class="w-96 h-96 mx-auto">
+                <div id="qrCodeWrapper">
+                    <!-- QR will be loaded here -->
+                </div>
             </div>
             
             <p class="text-sm text-gray-500 mt-6">
                 QR code refreshes every {{ organization.qr_refresh_interval }} minutes
             </p>
             <p class="text-xs text-gray-400 mt-2" id="lastRefresh">
-                Last refreshed: <span id="refreshTime">Just now</span>
+                Last refreshed: <span id="refreshTime">Loading...</span>
+            </p>
+            <p class="text-xs text-green-600 mt-1" id="countdown">
+                Next refresh in: <span id="countdownTime">-</span>
             </p>
         </div>
         
@@ -37,39 +42,65 @@
         <div class="bg-white rounded-b-3xl p-6 shadow-2xl">
             <div class="flex items-center justify-center gap-6 text-sm text-gray-600">
                 <div>
-                    <span class="font-semibold">📍</span> Location Verified
+                    <span class="font-semibold text-lg">📍</span> Location Verified
                 </div>
                 <div>
-                    <span class="font-semibold">⏰</span> Auto Check-in
+                    <span class="font-semibold text-lg">⏰</span> Auto Check-in
                 </div>
                 <div>
-                    <span class="font-semibold">✓</span> Secure
+                    <span class="font-semibold text-lg">✓</span> Secure
                 </div>
             </div>
         </div>
     </div>
     
     <script>
-        const refreshInterval = {{ refresh_interval }};
+        const refreshInterval = {{ refresh_interval|default:300000 }};
         const branchId = {{ branch.pk }};
+        let nextRefreshTime = Date.now() + refreshInterval;
         
-        function refreshQR() {
+        function loadQR() {
             const timestamp = new Date().getTime();
-            const qrImage = document.getElementById('qrImage');
-            qrImage.src = `/attendance/qr/generate/?branch=${branchId}&t=${timestamp}`;
+            const qrWrapper = document.getElementById('qrCodeWrapper');
             
-            const now = new Date();
-            document.getElementById('refreshTime').textContent = now.toLocaleTimeString();
+            const img = document.createElement('img');
+            img.src = '/attendance/qr/generate/?branch=' + branchId + '&t=' + timestamp;
+            img.alt = 'QR Code';
+            img.className = 'w-96 h-96 mx-auto';
+            
+            qrWrapper.innerHTML = '<p class="text-gray-500">Loading QR...</p>';
+            
+            img.onload = function() {
+                qrWrapper.innerHTML = '';
+                qrWrapper.appendChild(img);
+                
+                const now = new Date();
+                document.getElementById('refreshTime').textContent = now.toLocaleTimeString();
+                
+                nextRefreshTime = Date.now() + refreshInterval;
+            };
+            
+            img.onerror = function() {
+                qrWrapper.innerHTML = '<p class="text-red-500">Error loading QR code</p>';
+            };
         }
         
-        // Auto-refresh QR code
-        setInterval(refreshQR, refreshInterval);
+        function updateCountdown() {
+            const remaining = Math.max(0, nextRefreshTime - Date.now());
+            const seconds = Math.ceil(remaining / 1000);
+            const minutes = Math.floor(seconds / 60);
+            const secs = seconds % 60;
+            
+            if (minutes > 0) {
+                document.getElementById('countdownTime').textContent = minutes + 'm ' + secs + 's';
+            } else {
+                document.getElementById('countdownTime').textContent = secs + 's';
+            }
+        }
         
-        // Update time display every second
-        setInterval(() => {
-            const now = new Date();
-            document.getElementById('refreshTime').textContent = now.toLocaleTimeString();
-        }, 1000);
+        loadQR();
+        setInterval(loadQR, refreshInterval);
+        setInterval(updateCountdown, 1000);
     </script>
 </body>
 </html>
