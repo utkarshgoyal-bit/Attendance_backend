@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Location Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .box {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        button {
+            background: #0066cc;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            width: 100%;
+        }
+        button:hover {
+            background: #0052a3;
+        }
+        .success { background: #d4edda; color: #155724; padding: 10px; border-radius: 5px; }
+        .error { background: #f8d7da; color: #721c24; padding: 10px; border-radius: 5px; }
+        .info { background: #d1ecf1; color: #0c5460; padding: 10px; border-radius: 5px; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 5px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>📍 Location Test Page</h1>
+    
+    <div class="box">
+        <h3>Step 1: Check Browser Support</h3>
+        <div id="browserSupport"></div>
+    </div>
+    
+    <div class="box">
+        <h3>Step 2: Request Location</h3>
+        <button onclick="getLocation()">Get My Location</button>
+        <div id="status" style="margin-top: 15px;"></div>
+    </div>
+    
+    <div class="box">
+        <h3>Location Data:</h3>
+        <div id="locationData"></div>
+    </div>
+    
+    <div class="box">
+        <h3>Debug Log:</h3>
+        <pre id="debugLog"></pre>
+    </div>
+    
+    <script>
+        let debugLog = [];
+        
+        function log(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            const logMessage = `[${timestamp}] ${message}`;
+            debugLog.push(logMessage);
+            document.getElementById('debugLog').textContent = debugLog.join('\n');
+            console.log(logMessage);
+        }
+        
+        // Check browser support
+        window.addEventListener('load', function() {
+            const supportDiv = document.getElementById('browserSupport');
+            
+            if (navigator.geolocation) {
+                supportDiv.innerHTML = '<div class="success">✅ Your browser supports geolocation</div>';
+                log('Browser supports geolocation');
+                
+                // Check permissions API if available
+                if (navigator.permissions) {
+                    navigator.permissions.query({ name: 'geolocation' }).then(function(result) {
+                        log('Permission state: ' + result.state);
+                        supportDiv.innerHTML += '<div class="info">Permission state: ' + result.state + '</div>';
+                    });
+                }
+            } else {
+                supportDiv.innerHTML = '<div class="error">❌ Geolocation is not supported by your browser</div>';
+                log('Browser does NOT support geolocation');
+            }
+            
+            // Log browser info
+            log('User Agent: ' + navigator.userAgent);
+            log('Protocol: ' + window.location.protocol);
+            log('Hostname: ' + window.location.hostname);
+        });
+        
+        function getLocation() {
+            log('getLocation() called');
+            const statusDiv = document.getElementById('status');
+            const dataDiv = document.getElementById('locationData');
+            
+            statusDiv.innerHTML = '<div class="info">⏳ Requesting location...</div>';
+            log('Requesting geolocation...');
+            
+            if (!navigator.geolocation) {
+                statusDiv.innerHTML = '<div class="error">❌ Geolocation not supported</div>';
+                log('ERROR: Geolocation not supported');
+                return;
+            }
+            
+            const options = {
+                enableHighAccuracy: true,
+                timeout: 10000,
+                maximumAge: 0
+            };
+            
+            log('Options: ' + JSON.stringify(options));
+            
+            navigator.geolocation.getCurrentPosition(
+                // Success
+                function(position) {
+                    log('SUCCESS: Got position');
+                    const lat = position.coords.latitude;
+                    const lon = position.coords.longitude;
+                    const accuracy = position.coords.accuracy;
+                    
+                    log('Latitude: ' + lat);
+                    log('Longitude: ' + lon);
+                    log('Accuracy: ' + accuracy + ' meters');
+                    
+                    statusDiv.innerHTML = '<div class="success">✅ Location obtained successfully!</div>';
+                    
+                    dataDiv.innerHTML = `
+                        <div class="success">
+                            <strong>📍 Your Location:</strong><br>
+                            Latitude: ${lat}<br>
+                            Longitude: ${lon}<br>
+                            Accuracy: ${accuracy.toFixed(2)} meters<br>
+                            <br>
+                            <a href="https://www.google.com/maps?q=${lat},${lon}" target="_blank">
+                                📍 View on Google Maps
+                            </a>
+                        </div>
+                    `;
+                },
+                // Error
+                function(error) {
+                    log('ERROR: ' + error.code + ' - ' + error.message);
+                    
+                    let errorMessage = '';
+                    switch(error.code) {
+                        case error.PERMISSION_DENIED:
+                            errorMessage = '❌ Permission Denied: You blocked location access. Please enable it in browser settings.';
+                            log('User denied permission');
+                            break;
+                        case error.POSITION_UNAVAILABLE:
+                            errorMessage = '❌ Position Unavailable: Location information is unavailable.';
+                            log('Position unavailable');
+                            break;
+                        case error.TIMEOUT:
+                            errorMessage = '❌ Timeout: Request timed out.';
+                            log('Request timeout');
+                            break;
+                        default:
+                            errorMessage = '❌ Unknown Error: ' + error.message;
+                            log('Unknown error: ' + error.message);
+                    }
+                    
+                    statusDiv.innerHTML = `<div class="error">${errorMessage}</div>`;
+                    dataDiv.innerHTML = `
+                        <div class="error">
+                            <strong>Error Details:</strong><br>
+                            Code: ${error.code}<br>
+                            Message: ${error.message}
+                        </div>
+                    `;
+                },
+                options
+            );
+        }
+    </script>
+</body>
+</html>

@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Employee Check-in</title>
+    <title>Employee Check-in - {{ branch.name|default:"HR System" }}</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gradient-to-br from-blue-500 to-indigo-600 min-h-screen flex items-center justify-center p-4">
@@ -13,7 +13,7 @@
         {% if success %}
             <!-- SUCCESS SCREEN -->
             <div class="text-center">
-                <div class="bg-green-100 rounded-full w-24 h-24 flex items-center justify-center mx-auto mb-6 animate-bounce">
+                <div class="bg-green-100 rounded-full w-24 h-24 flex items-center justify-center mx-auto mb-6">
                     <svg class="w-16 h-16 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path>
                     </svg>
@@ -23,14 +23,12 @@
                     <p class="text-gray-700 text-lg">Time: <span class="font-bold text-blue-600">{{ time }}</span></p>
                     <p class="text-gray-700 text-lg">Status: <span class="font-bold text-green-600">{{ status }}</span></p>
                 </div>
-                
                 {% if branch %}
                 <p class="text-gray-500">{{ branch.name }}</p>
                 <p class="text-gray-400 text-sm">{{ branch.organization.name }}</p>
                 {% endif %}
-                
                 <div class="mt-8">
-                    <p class="text-sm text-gray-400">Have a productive day! 🎉</p>
+                    <p class="text-sm text-gray-400">Have a great day! 🎉</p>
                 </div>
             </div>
         
@@ -42,8 +40,8 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"></path>
                     </svg>
                 </div>
-                <h1 class="text-2xl font-bold text-red-600 mb-4">{{ error }}</h1>
-                <button onclick="window.location.reload()" class="mt-4 bg-blue-600 text-white py-2 px-6 rounded-lg hover:bg-blue-700">
+                <h1 class="text-xl font-bold text-red-600 mb-4">{{ error }}</h1>
+                <button onclick="window.location.reload()" class="mt-4 bg-blue-600 text-white py-3 px-6 rounded-lg hover:bg-blue-700">
                     Try Again
                 </button>
             </div>
@@ -52,49 +50,48 @@
             <!-- CHECK-IN FORM -->
             <div class="text-center mb-6">
                 {% if branch %}
-                <div class="mb-4">
-                    <h1 class="text-2xl font-bold text-gray-800">{{ branch.name }}</h1>
-                    <p class="text-gray-600">{{ branch.organization.name }}</p>
-                </div>
+                <h1 class="text-2xl font-bold text-gray-800">{{ branch.name }}</h1>
+                <p class="text-gray-600 mb-2">{{ branch.organization.name }}</p>
                 {% else %}
-                <h1 class="text-2xl font-bold text-gray-800 mb-4">Employee Check-in</h1>
+                <h1 class="text-2xl font-bold text-gray-800 mb-2">Employee Check-in</h1>
                 {% endif %}
+                <p class="text-sm text-gray-500">Scan QR to check in</p>
             </div>
             
-            <!-- LOCATION STATUS CARD -->
-            <div id="locationCard" class="mb-6 p-6 rounded-xl border-2 border-blue-300 bg-blue-50">
-                <div class="text-center">
-                    <svg id="locationIcon" class="w-16 h-16 text-blue-600 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <!-- LOCATION STATUS -->
+            <div id="locationBox" class="mb-6 p-6 rounded-xl border-2">
+                <div id="locationContent" class="text-center">
+                    <svg id="locationIcon" class="w-16 h-16 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
                     </svg>
-                    <h3 id="locationTitle" class="text-lg font-bold text-gray-800 mb-2">Location Required</h3>
-                    <p id="locationMessage" class="text-sm text-gray-600 mb-4">We need to verify you're at the office</p>
-                    <button id="enableLocationBtn" onclick="requestLocation()" class="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-700 transition">
+                    <h3 id="locationTitle" class="text-lg font-bold text-gray-800 mb-2">Getting Location...</h3>
+                    <p id="locationMsg" class="text-sm text-gray-600 mb-4">Please wait</p>
+                    <button id="retryBtn" onclick="requestLocation()" style="display:none;" class="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-700">
                         Enable Location
                     </button>
                 </div>
             </div>
             
             <!-- CHECK-IN FORM -->
-            <form method="post" id="checkInForm" class="space-y-4">
+            <form method="POST" id="checkinForm">
                 {% csrf_token %}
                 
-                <input type="hidden" name="latitude" id="latitude">
-                <input type="hidden" name="longitude" id="longitude">
+                <input type="hidden" name="latitude" id="lat">
+                <input type="hidden" name="longitude" id="lon">
                 
-                <div>
-                    <label for="employee_id" class="block text-sm font-medium text-gray-700 mb-2">
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
                         Employee ID <span class="text-red-500">*</span>
                     </label>
                     <input 
                         type="text" 
                         name="employee_id" 
-                        id="employee_id" 
+                        id="empId" 
                         required
                         placeholder="Enter your Employee ID"
-                        class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-lg disabled:bg-gray-100 disabled:cursor-not-allowed"
                         disabled
+                        class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg text-lg disabled:bg-gray-100"
                     >
                 </div>
                 
@@ -102,43 +99,137 @@
                     type="submit" 
                     id="submitBtn"
                     disabled
-                    class="w-full bg-gray-300 text-gray-500 py-3 px-6 rounded-lg font-semibold text-lg cursor-not-allowed"
+                    class="w-full py-3 px-6 rounded-lg font-semibold text-lg bg-gray-300 text-gray-500 cursor-not-allowed"
                 >
                     <span id="btnText">Waiting for location...</span>
                 </button>
                 
                 <p class="text-xs text-center text-gray-500 mt-3">
-                    🔒 Your location is used only for attendance verification
+                    🔒 Location is used only for attendance verification
                 </p>
             </form>
+            
+            <!-- DEBUG INFO (hidden by default) -->
+            <div id="debugInfo" style="display:none;" class="mt-4 p-3 bg-gray-100 rounded text-xs">
+                <strong>Debug:</strong>
+                <pre id="debugLog" class="mt-2 overflow-x-auto"></pre>
+            </div>
         {% endif %}
     </div>
     
     <script>
-        let locationObtained = false;
-        let retryCount = 0;
-        const MAX_RETRIES = 3;
+        let hasLocation = false;
+        let debugMessages = [];
         
-        // Auto-request location after 1 second
-        window.addEventListener('load', function() {
-            setTimeout(requestLocation, 1000);
+        function debug(msg) {
+            const time = new Date().toLocaleTimeString();
+            debugMessages.push(`[${time}] ${msg}`);
+            console.log(msg);
+            
+            const debugLog = document.getElementById('debugLog');
+            if (debugLog) {
+                debugLog.textContent = debugMessages.join('\n');
+            }
+        }
+        
+        // Show debug info on triple-tap of title
+        let tapCount = 0;
+        document.querySelector('h1').addEventListener('click', function() {
+            tapCount++;
+            if (tapCount === 3) {
+                document.getElementById('debugInfo').style.display = 'block';
+                tapCount = 0;
+            }
+            setTimeout(() => { tapCount = 0; }, 1000);
         });
         
+        function updateUI(state, message = '') {
+            const box = document.getElementById('locationBox');
+            const icon = document.getElementById('locationIcon');
+            const title = document.getElementById('locationTitle');
+            const msg = document.getElementById('locationMsg');
+            const retry = document.getElementById('retryBtn');
+            
+            if (state === 'loading') {
+                box.className = 'mb-6 p-6 rounded-xl border-2 border-yellow-300 bg-yellow-50';
+                icon.className = 'w-16 h-16 mx-auto mb-3 text-yellow-600 animate-pulse';
+                title.textContent = 'Getting Location...';
+                msg.textContent = 'Please allow location access';
+                retry.style.display = 'none';
+            }
+            else if (state === 'success') {
+                box.className = 'mb-6 p-6 rounded-xl border-2 border-green-300 bg-green-50';
+                icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path>';
+                icon.className = 'w-16 h-16 mx-auto mb-3 text-green-600';
+                title.textContent = 'Location Verified! ✓';
+                msg.textContent = 'You can now check in';
+                retry.style.display = 'none';
+                
+                // Enable form
+                document.getElementById('empId').disabled = false;
+                document.getElementById('empId').focus();
+                document.getElementById('submitBtn').disabled = false;
+                document.getElementById('submitBtn').className = 'w-full py-3 px-6 rounded-lg font-semibold text-lg bg-blue-600 text-white hover:bg-blue-700';
+                document.getElementById('btnText').textContent = 'Check In';
+            }
+            else if (state === 'error') {
+                box.className = 'mb-6 p-6 rounded-xl border-2 border-red-300 bg-red-50';
+                icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>';
+                icon.className = 'w-16 h-16 mx-auto mb-3 text-red-600';
+                title.textContent = 'Location Error';
+                msg.textContent = message || 'Could not get location';
+                retry.style.display = 'block';
+            }
+        }
+        
         function requestLocation() {
-            retryCount++;
+            debug('requestLocation() called');
             
             if (!navigator.geolocation) {
-                showError('Your browser does not support location services');
+                debug('ERROR: Geolocation not supported');
+                updateUI('error', 'Your browser does not support location');
                 return;
             }
             
-            // Update UI to loading state
-            updateLocationCard('loading');
+            updateUI('loading');
+            debug('Requesting position...');
             
-            // Request location with high accuracy
             navigator.geolocation.getCurrentPosition(
-                handleLocationSuccess,
-                handleLocationError,
+                function(position) {
+                    debug('SUCCESS: Got location');
+                    debug('Lat: ' + position.coords.latitude);
+                    debug('Lon: ' + position.coords.longitude);
+                    debug('Accuracy: ' + position.coords.accuracy + 'm');
+                    
+                    document.getElementById('lat').value = position.coords.latitude;
+                    document.getElementById('lon').value = position.coords.longitude;
+                    hasLocation = true;
+                    
+                    updateUI('success');
+                },
+                function(error) {
+                    debug('ERROR: ' + error.code + ' - ' + error.message);
+                    
+                    let errorMsg = '';
+                    switch(error.code) {
+                        case 1: // PERMISSION_DENIED
+                            errorMsg = 'Location permission denied. Tap "Enable Location" and allow access.';
+                            debug('User denied permission');
+                            break;
+                        case 2: // POSITION_UNAVAILABLE
+                            errorMsg = 'Location unavailable. Check your GPS settings.';
+                            debug('Position unavailable');
+                            break;
+                        case 3: // TIMEOUT
+                            errorMsg = 'Location request timed out. Please try again.';
+                            debug('Timeout');
+                            break;
+                        default:
+                            errorMsg = 'Unknown error: ' + error.message;
+                    }
+                    
+                    updateUI('error', errorMsg);
+                },
                 {
                     enableHighAccuracy: true,
                     timeout: 15000,
@@ -147,108 +238,43 @@
             );
         }
         
-        function handleLocationSuccess(position) {
-            // Store coordinates
-            document.getElementById('latitude').value = position.coords.latitude;
-            document.getElementById('longitude').value = position.coords.longitude;
-            locationObtained = true;
+        // AUTO-REQUEST on page load
+        window.addEventListener('load', function() {
+            debug('Page loaded');
+            debug('User Agent: ' + navigator.userAgent);
+            debug('Protocol: ' + window.location.protocol);
+            debug('Hostname: ' + window.location.hostname);
             
-            // Update UI to success state
-            updateLocationCard('success');
-            
-            // Enable form
-            document.getElementById('employee_id').disabled = false;
-            document.getElementById('employee_id').focus();
-            document.getElementById('submitBtn').disabled = false;
-            document.getElementById('submitBtn').className = 'w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold text-lg hover:bg-blue-700 transition';
-            document.getElementById('btnText').textContent = 'Check In';
-        }
-        
-        function handleLocationError(error) {
-            let message = '';
-            let canRetry = true;
-            
-            switch(error.code) {
-                case error.PERMISSION_DENIED:
-                    message = 'Location permission denied. Please enable location in your browser settings.';
-                    canRetry = retryCount < MAX_RETRIES;
-                    break;
-                case error.POSITION_UNAVAILABLE:
-                    message = 'Location unavailable. Please check your GPS settings.';
-                    break;
-                case error.TIMEOUT:
-                    message = 'Location request timed out. Please try again.';
-                    break;
-                default:
-                    message = 'Unable to get location. Please try again.';
-            }
-            
-            updateLocationCard('error', message, canRetry);
-        }
-        
-        function updateLocationCard(state, message = '', canRetry = false) {
-            const card = document.getElementById('locationCard');
-            const icon = document.getElementById('locationIcon');
-            const title = document.getElementById('locationTitle');
-            const msg = document.getElementById('locationMessage');
-            const btn = document.getElementById('enableLocationBtn');
-            
-            if (state === 'loading') {
-                card.className = 'mb-6 p-6 rounded-xl border-2 border-yellow-300 bg-yellow-50';
-                icon.innerHTML = '<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>';
-                icon.className = 'w-16 h-16 text-yellow-600 mx-auto mb-3 animate-spin';
-                title.textContent = 'Getting Location...';
-                msg.textContent = 'Please wait while we verify your location';
-                btn.style.display = 'none';
-            }
-            else if (state === 'success') {
-                card.className = 'mb-6 p-6 rounded-xl border-2 border-green-300 bg-green-50';
-                icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path>';
-                icon.className = 'w-16 h-16 text-green-600 mx-auto mb-3';
-                title.textContent = 'Location Verified!';
-                msg.textContent = 'You can now enter your Employee ID and check in';
-                btn.style.display = 'none';
-            }
-            else if (state === 'error') {
-                card.className = 'mb-6 p-6 rounded-xl border-2 border-red-300 bg-red-50';
-                icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>';
-                icon.className = 'w-16 h-16 text-red-600 mx-auto mb-3';
-                title.textContent = 'Location Error';
-                msg.textContent = message;
-                
-                if (canRetry) {
-                    btn.textContent = 'Try Again';
-                    btn.style.display = 'block';
-                } else {
-                    btn.style.display = 'none';
-                }
-            }
-        }
-        
-        function showError(message) {
-            updateLocationCard('error', message, false);
-        }
+            // Request after 1 second
+            setTimeout(requestLocation, 1000);
+        });
         
         // Form submission
-        document.getElementById('checkInForm').addEventListener('submit', function(e) {
-            if (!locationObtained) {
+        document.getElementById('checkinForm').addEventListener('submit', function(e) {
+            if (!hasLocation) {
                 e.preventDefault();
-                alert('Please enable location access to check in');
+                alert('Please enable location access first');
+                debug('Submit blocked - no location');
                 return false;
             }
             
-            const employeeId = document.getElementById('employee_id').value.trim();
-            if (!employeeId) {
+            const empId = document.getElementById('empId').value.trim();
+            if (!empId) {
                 e.preventDefault();
                 alert('Please enter your Employee ID');
+                debug('Submit blocked - no employee ID');
                 return false;
             }
             
-            // Disable submit button
-            const submitBtn = document.getElementById('submitBtn');
-            submitBtn.disabled = true;
-            submitBtn.className = 'w-full bg-gray-400 text-white py-3 px-6 rounded-lg font-semibold text-lg cursor-not-allowed';
-            document.getElementById('btnText').innerHTML = '<span class="animate-pulse">Processing...</span>';
+            debug('Form submitting...');
+            debug('Employee ID: ' + empId);
+            debug('Lat: ' + document.getElementById('lat').value);
+            debug('Lon: ' + document.getElementById('lon').value);
+            
+            // Disable button
+            document.getElementById('submitBtn').disabled = true;
+            document.getElementById('submitBtn').className = 'w-full py-3 px-6 rounded-lg font-semibold text-lg bg-gray-400 text-white cursor-not-allowed';
+            document.getElementById('btnText').textContent = 'Processing...';
         });
     </script>
 </body>
