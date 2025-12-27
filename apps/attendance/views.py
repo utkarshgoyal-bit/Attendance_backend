@@ -305,9 +305,8 @@ def generate_qr_view(request):
     return response
 
 
-@login_required
 def qr_checkin(request):
-    """Check-in via QR code scan with employee ID and geo-location"""
+    """Employee check-in via QR scan - Public access"""
     
     token = request.GET.get('token')
     
