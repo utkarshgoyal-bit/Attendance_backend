@@ -367,7 +367,7 @@ def qr_checkin(request):
         from .tasks import process_attendance_checkin
         
         # Offload distance calculation, status calculation, and DB write to Celery
-        process_attendance_checkin.delay(
+        task = process_attendance_checkin.delay(
             employee.id, 
             organization.id, 
             branch.id,
@@ -376,6 +376,9 @@ def qr_checkin(request):
             timezone.now().isoformat()
         )
         
+        if request.headers.get('Accept') == 'application/json':
+            from django.http import JsonResponse
+            return JsonResponse({'task_id': task.id})
 
         # Return "Instant" response to the user
         return render(request, 'attendance/qr_scan.html', {
