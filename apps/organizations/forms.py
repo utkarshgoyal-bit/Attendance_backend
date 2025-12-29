@@ -5,29 +5,19 @@ from .models import Organization, Department, Branch, Shift
 class OrganizationForm(forms.ModelForm):
     class Meta:
         model = Organization
-        fields = ['name', 'logo', 'address_line1', 'address_line2', 'city', 
-                  'state', 'pincode', 'country', 'email', 'phone', 'website',
-                  'gst_number', 'pan_number', 'qr_refresh_interval', 'is_active']
+        fields = ['name', 'schema_name', 'geo_fence_radius', 'require_geo_validation', 'qr_refresh_interval']
         widgets = {
             'name': forms.TextInput(attrs={'class': 'w-full px-4 py-2 border rounded-lg'}),
-            'address_line1': forms.TextInput(attrs={'class': 'w-full px-4 py-2 border rounded-lg'}),
-            'address_line2': forms.TextInput(attrs={'class': 'w-full px-4 py-2 border rounded-lg'}),
-            'city': forms.TextInput(attrs={'class': 'w-full px-4 py-2 border rounded-lg'}),
-            'state': forms.TextInput(attrs={'class': 'w-full px-4 py-2 border rounded-lg'}),
-            'pincode': forms.TextInput(attrs={'class': 'w-full px-4 py-2 border rounded-lg'}),
-            'country': forms.TextInput(attrs={'class': 'w-full px-4 py-2 border rounded-lg'}),
-            'email': forms.EmailInput(attrs={'class': 'w-full px-4 py-2 border rounded-lg'}),
-            'phone': forms.TextInput(attrs={'class': 'w-full px-4 py-2 border rounded-lg'}),
-            'website': forms.URLInput(attrs={'class': 'w-full px-4 py-2 border rounded-lg'}),
-            'gst_number': forms.TextInput(attrs={'class': 'w-full px-4 py-2 border rounded-lg'}),
-            'pan_number': forms.TextInput(attrs={'class': 'w-full px-4 py-2 border rounded-lg'}),
+            'schema_name': forms.TextInput(attrs={'class': 'w-full px-4 py-2 border rounded-lg'}),
+            'geo_fence_radius': forms.NumberInput(attrs={'class': 'w-full px-4 py-2 border rounded-lg'}),
+            'require_geo_validation': forms.CheckboxInput(attrs={'class': 'rounded text-blue-600 focus:ring-blue-500'}),
             'qr_refresh_interval': forms.NumberInput(attrs={'class': 'w-full px-4 py-2 border rounded-lg'}),
         }
 
 
 class DepartmentForm(forms.ModelForm):
     organization = forms.ModelChoiceField(
-        queryset=Organization.objects.filter(is_active=True),
+        queryset=Organization.objects.all(),
         required=True,
         widget=forms.Select(attrs={'class': 'w-full px-4 py-2 border rounded-lg'})
     )
@@ -44,7 +34,7 @@ class DepartmentForm(forms.ModelForm):
 
 class BranchForm(forms.ModelForm):
     organization = forms.ModelChoiceField(
-        queryset=Organization.objects.filter(is_active=True),
+        queryset=Organization.objects.all(),
         required=True,
         widget=forms.Select(attrs={'class': 'w-full px-4 py-2 border rounded-lg'})
     )
@@ -68,7 +58,7 @@ class BranchForm(forms.ModelForm):
 
 class ShiftForm(forms.ModelForm):
     organization = forms.ModelChoiceField(
-        queryset=Organization.objects.filter(is_active=True),
+        queryset=Organization.objects.all(),
         required=True,
         widget=forms.Select(attrs={'class': 'w-full px-4 py-2 border rounded-lg'})
     )
