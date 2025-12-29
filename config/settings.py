@@ -13,34 +13,37 @@ ALLOWED_HOSTS = ['localhost', '127.0.0.1', '192.168.1.18']
 
 # Application definition
 
-INSTALLED_APPS = [
+AUTH_USER_MODEL = 'accounts.User'
+
+SHARED_APPS = [
+    'django_tenants',  # Mandatory
+    'apps.organizations', # Stores the "Client" and "Domain" models
+    
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    
+    'django_celery_results',
+]
+
+TENANT_APPS = [
+    'apps.accounts',
+    'apps.employees',
+    'apps.attendance',
     'django_htmx',
     'crispy_forms',
     'crispy_tailwind',
-    'apps.organizations', 
-    'apps.accounts',
-    'apps.employees',
-    'apps.attendance',  # ADD THIS LINE
 ]
-AUTH_USER_MODEL = 'accounts.User'
-# CELERY SETTINGS
-CELERY_BROKER_URL = os.getenv('REDIS_URL', 'redis://localhost:6373/0')
-CELERY_RESULT_BACKEND = 'django-db'
-CELERY_ACCEPT_CONTENT = ['json']
-CELERY_TASK_SERIALIZER = 'json'
-CELERY_RESULT_SERIALIZER = 'json'
-CELERY_TIMEZONE = TIME_ZONE
 
-# Add django_celery_results to INSTALLED_APPS in the top of this file
-INSTALLED_APPS = ['django_celery_results']
+INSTALLED_APPS = list(SHARED_APPS) + [app for app in TENANT_APPS if app not in SHARED_APPS]
+
+TENANT_MODEL = 'organizations.Organization' 
+TENANT_DOMAIN_MODEL = 'organizations.Domain'
+
 MIDDLEWARE = [
+    'django_tenants.middleware.main.TenantMainMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -48,6 +51,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'django_htmx.middleware.HtmxMiddleware',
 ]
 
 ROOT_URLCONF = 'config.urls'
@@ -75,7 +79,7 @@ WSGI_APPLICATION = 'config.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django_tenants.postgresql_backend', # Requires PostgreSQL
+        'ENGINE': 'django_tenants.postgresql_backend',
         'NAME': os.getenv('DB_NAME', 'hr_system'),
         'USER': os.getenv('DB_USER'),
         'PASSWORD': os.getenv('DB_PASSWORD'),
@@ -87,30 +91,7 @@ DATABASES = {
 DATABASE_ROUTERS = (
     'django_tenants.routers.TenantSyncRouter',
 )
-SHARED_APPS = [
-    'django_tenants',  # Mandatory
-    'apps.organizations', # Stores the "Client" and "Domain" models
-    
-    'django.contrib.admin',
-    'django.contrib.auth',
-    'django.contrib.contenttypes',
-    'django.contrib.sessions',
-    'django.contrib.messages',
-    'django.contrib.staticfiles',
-]
 
-TENANT_APPS = [
-    'apps.accounts',
-    'apps.employees',
-    'apps.attendance',
-    'django_htmx',
-    'crispy_forms',
-    'crispy_tailwind',
-]
-# 3. Define the Tenant and Domain models
-TENANT_MODEL = 'organizations.Organization' 
-TENANT_DOMAIN_MODEL = 'organizations.Domain'
-INSTALLED_APPS = list(SHARED_APPS) + [app for app in TENANT_APPS if app not in SHARED_APPS]
 # Password validation
 # https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators
 
@@ -131,17 +112,17 @@ AUTH_PASSWORD_VALIDATORS = [
 
 
 LANGUAGE_CODE = 'en-us'
-TIME_ZONE = 'Asia/Kolkata'  # This must come BEFORE Celery settings
+TIME_ZONE = 'Asia/Kolkata'
 USE_I18N = True
 USE_TZ = True
 
-# --- Add/Move Celery Settings to the BOTTOM ---
+# CELERY SETTINGS
 CELERY_BROKER_URL = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
 CELERY_RESULT_BACKEND = 'django-db'
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
-CELERY_TIMEZONE = TIME_ZONE  # Now this will work
+CELERY_TIMEZONE = TIME_ZONE
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
@@ -162,5 +143,3 @@ LOGIN_REDIRECT_URL = 'dashboard'
 LOGOUT_REDIRECT_URL = 'accounts:login'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-
-

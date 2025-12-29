@@ -1,6 +1,8 @@
 from celery import shared_task
 from django.utils import timezone
 from datetime import datetime
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
 from .models import Attendance
 from apps.employees.models import Employee
 from apps.organizations.models import Organization
@@ -51,6 +53,21 @@ def process_attendance_checkin(employee_id, organization_id, branch_id, user_lat
         late_by_minutes=late_minutes if status != 'present' else 0,
         check_in_latitude=user_lat,
         check_in_longitude=user_lon
+    )
+
+    # 4. Notify via WebSockets
+    channel_layer = get_channel_layer()
+    async_to_sync(channel_layer.group_send)(
+        'attendance_updates',
+        {
+            'type': 'attendance_message',
+            'data': {
+                'employee_id': employee.employee_id,
+                'employee_name': f"{employee.first_name} {employee.last_name}",
+                'status': status.upper(),
+                'check_in_time': now.strftime("%I:%M %p")
+            }
+        }
     )
     
     return {"status": "success", "employee": employee.employee_id}
