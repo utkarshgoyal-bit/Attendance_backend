@@ -5,3 +5,8 @@ python-dotenv
 Pillow
 django-crispy-forms
 crispy-tailwind
+qrcode
+# Phase 2: EDA Requirements
+celery>=5.3.0
+redis>=5.0.0
+django-celery-results>=2.5.0

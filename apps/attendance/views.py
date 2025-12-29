@@ -306,14 +306,13 @@ def generate_qr_view(request):
 
 
 def qr_checkin(request):
-    """Employee check-in via QR scan - Public access"""
-    
+    """Employee check-in via QR scan - Refactored for Phase 2 (EDA)"""
     token = request.GET.get('token')
     
     if not token:
         return render(request, 'attendance/qr_scan.html', {'error': 'Invalid QR code'})
     
-    # Validate QR token
+    # Validate QR token (Keep this synchronous to ensure the token exists)
     try:
         qr_token = QRToken.objects.select_related('organization', 'branch').get(token=token)
     except QRToken.DoesNotExist:
@@ -340,9 +339,9 @@ def qr_checkin(request):
                 'error': 'Please enter your Employee ID'
             })
         
-        # Find employee
+        # Basic preliminary check: Does the employee exist?
         try:
-            employee = Employee.objects.select_related('user', 'shift', 'branch').get(
+            employee = Employee.objects.select_related('organization', 'branch').get(
                 employee_id=employee_id, 
                 organization=organization, 
                 is_active=True
@@ -353,8 +352,8 @@ def qr_checkin(request):
                 'branch': branch,
                 'error': f'Employee ID "{employee_id}" not found'
             })
-        
-        # Check if already checked in
+
+        # CHECK DUPLICATE: We still do this synchronously to prevent double-submissions
         today = timezone.now().date()
         if Attendance.objects.filter(employee=employee, date=today).exists():
             return render(request, 'attendance/qr_scan.html', {
@@ -362,113 +361,35 @@ def qr_checkin(request):
                 'branch': branch,
                 'error': 'You have already checked in today'
             })
+
+        # --- PHASE 2: TRIGGER THE ASYNCHRONOUS EVENT ---
+        # Import the task inside the function to avoid circular imports
+        from .tasks import process_attendance_checkin
         
-        # Validate geo-location using BRANCH location
-        if organization.require_geo_validation:
-            if not user_lat or not user_lon:
-                return render(request, 'attendance/qr_scan.html', {
-                    'token': token,
-                    'branch': branch,
-                    'error': 'Location access required. Please enable location.'
-                })
-            
-            # Use branch location
-            office_lat = branch.latitude
-            office_lon = branch.longitude
-            radius = branch.geo_fence_radius if branch.geo_fence_radius else organization.geo_fence_radius
-            
-            if not office_lat or not office_lon:
-                return render(request, 'attendance/qr_scan.html', {
-                    'token': token,
-                    'branch': branch,
-                    'error': f'{branch.name} location not configured. Contact HR.'
-                })
-            
-            from .geo_utils import is_within_geofence
-            
-            within_fence, distance = is_within_geofence(
-                float(user_lat), float(user_lon),
-                float(office_lat), float(office_lon),
-                radius
-            )
-            
-            if not within_fence:
-                return render(request, 'attendance/qr_scan.html', {
-                    'token': token,
-                    'branch': branch,
-                    'error': f'You are {int(distance)}m away. Must be within {radius}m of {branch.name}.'
-                })
-        
-        # Check shift
-        if not employee.shift:
-            return render(request, 'attendance/qr_scan.html', {
-                'token': token,
-                'branch': branch,
-                'error': 'No shift assigned. Contact HR.'
-            })
-        
-        # Calculate status
-        now = timezone.now()
-        shift = employee.shift
-        shift_start = datetime.combine(today, shift.start_time)
-        shift_start = timezone.make_aware(shift_start)
-        
-        late_minutes = max(0, int((now - shift_start).total_seconds() / 60))
-        
-        if late_minutes <= shift.grace_period_minutes:
-            status = 'present'
-        elif late_minutes <= 120:
-            status = 'late'
-        else:
-            status = 'half_day'
-        
-        # Check if approval required (only for EMPLOYEE role)
-        user = employee.user
-        requires_approval = (
-            user.role == 'EMPLOYEE' and 
-            organization.require_approval_for_employees
+        # Offload distance calculation, status calculation, and DB write to Celery
+        process_attendance_checkin.delay(
+            employee.id, 
+            organization.id, 
+            branch.id,
+            user_lat, 
+            user_lon, 
+            timezone.now().isoformat()
         )
         
-        if requires_approval:
-            status = 'pending_approval'
-        
-        # Create attendance
-        Attendance.objects.create(
-            employee=employee,
-            date=today,
-            check_in_time=now,
-            check_in_method='qr',
-            status=status,
-            late_by_minutes=late_minutes if status in ['late', 'half_day'] else 0,
-            check_in_latitude=user_lat if user_lat else None,
-            check_in_longitude=user_lon if user_lon else None,
-            requires_approval=requires_approval
-        )
-        
-        # Success
-        if requires_approval:
-            return render(request, 'attendance/qr_scan.html', {
-                'success': True,
-                'branch': branch,
-                'message': 'Check-in request sent for approval',
-                'time': now.strftime("%I:%M %p"),
-                'status': 'Pending Approval'
-            })
-        else:
-            return render(request, 'attendance/qr_scan.html', {
-                'success': True,
-                'branch': branch,
-                'message': 'Check-in successful!',
-                'time': now.strftime("%I:%M %p"),
-                'status': status.replace('_', ' ').title()
-            })
+
+        # Return "Instant" response to the user
+        return render(request, 'attendance/qr_scan.html', {
+            'success': True,
+            'branch': branch,
+            'message': 'Request received. Processing your attendance in the background...',
+            'status': 'Processing'
+        })
     
-    # GET request
+    # GET request - show the initial form
     return render(request, 'attendance/qr_scan.html', {
         'token': token,
         'branch': branch
     })
-
 
 @login_required
 @role_required(['SUPER_ADMIN', 'ORG_ADMIN', 'HR_ADMIN', 'MANAGER'])

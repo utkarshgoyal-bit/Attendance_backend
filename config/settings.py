@@ -30,7 +30,16 @@ INSTALLED_APPS = [
     'apps.attendance',  # ADD THIS LINE
 ]
 AUTH_USER_MODEL = 'accounts.User'
+# CELERY SETTINGS
+CELERY_BROKER_URL = os.getenv('REDIS_URL', 'redis://localhost:6373/0')
+CELERY_RESULT_BACKEND = 'django-db'
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = TIME_ZONE
 
+# Add django_celery_results to INSTALLED_APPS in the top of this file
+INSTALLED_APPS += ['django_celery_results']
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
