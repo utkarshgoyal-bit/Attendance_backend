@@ -476,3 +476,25 @@ def qr_display(request, branch_id):
         'organization': org,
         'refresh_interval': refresh_interval
     })
+
+
+def get_task_status(request, task_id):
+    """
+    Check the status of a Celery task.
+    Returns: { "task_id": str, "status": "PENDING" | "SUCCESS" | "FAILURE", "result": ... }
+    """
+    from celery.result import AsyncResult
+    from django.http import JsonResponse
+    
+    task_result = AsyncResult(task_id)
+    response_data = {
+        'task_id': task_id,
+        'status': task_result.status,
+    }
+
+    if task_result.status == 'SUCCESS':
+        response_data['result'] = task_result.result
+    elif task_result.status == 'FAILURE':
+        response_data['result'] = str(task_result.result)
+        
+    return JsonResponse(response_data)

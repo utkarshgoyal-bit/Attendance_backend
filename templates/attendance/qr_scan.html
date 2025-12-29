@@ -121,6 +121,11 @@
         let hasLocation = false;
         let debugMessages = [];
         
+        // Branch coordinates from server-side template
+        const branchLat = {{ branch.latitude|default:"null" }};
+        const branchLon = {{ branch.longitude|default:"null" }};
+        const fenceRadius = {{ branch.geo_fence_radius|default:50 }};
+
         function debug(msg) {
             const time = new Date().toLocaleTimeString();
             debugMessages.push(`[${time}] ${msg}`);
@@ -132,23 +137,30 @@
             }
         }
         
-        // Show debug info on triple-tap of title
-        let tapCount = 0;
-        document.querySelector('h1').addEventListener('click', function() {
-            tapCount++;
-            if (tapCount === 3) {
-                document.getElementById('debugInfo').style.display = 'block';
-                tapCount = 0;
-            }
-            setTimeout(() => { tapCount = 0; }, 1000);
-        });
-        
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371e3; // Earth's radius in meters
+            const φ1 = lat1 * Math.PI / 180;
+            const φ2 = lat2 * Math.PI / 180;
+            const Δφ = (lat2 - lat1) * Math.PI / 180;
+            const Δλ = (lon2 - lon1) * Math.PI / 180;
+
+            const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+                      Math.cos(φ1) * Math.cos(φ2) *
+                      Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+            return R * c; // Distance in meters
+        }
+
         function updateUI(state, message = '') {
             const box = document.getElementById('locationBox');
             const icon = document.getElementById('locationIcon');
             const title = document.getElementById('locationTitle');
             const msg = document.getElementById('locationMsg');
             const retry = document.getElementById('retryBtn');
+            const empIdInput = document.getElementById('empId');
+            const submitBtn = document.getElementById('submitBtn');
+            const btnText = document.getElementById('btnText');
             
             if (state === 'loading') {
                 box.className = 'mb-6 p-6 rounded-xl border-2 border-yellow-300 bg-yellow-50';
@@ -162,15 +174,30 @@
                 icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path>';
                 icon.className = 'w-16 h-16 mx-auto mb-3 text-green-600';
                 title.textContent = 'Location Verified! ✓';
-                msg.textContent = 'You can now check in';
+                msg.textContent = message || 'You are within range';
                 retry.style.display = 'none';
                 
                 // Enable form
-                document.getElementById('empId').disabled = false;
-                document.getElementById('empId').focus();
-                document.getElementById('submitBtn').disabled = false;
-                document.getElementById('submitBtn').className = 'w-full py-3 px-6 rounded-lg font-semibold text-lg bg-blue-600 text-white hover:bg-blue-700';
-                document.getElementById('btnText').textContent = 'Check In';
+                empIdInput.disabled = false;
+                empIdInput.focus();
+                submitBtn.disabled = false;
+                submitBtn.className = 'w-full py-3 px-6 rounded-lg font-semibold text-lg bg-blue-600 text-white hover:bg-blue-700';
+                btnText.textContent = 'Check In';
+            }
+            else if (state === 'out_of_range') {
+                box.className = 'mb-6 p-6 rounded-xl border-2 border-red-300 bg-red-50';
+                icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>';
+                icon.className = 'w-16 h-16 mx-auto mb-3 text-red-600';
+                title.textContent = 'Out of Range';
+                msg.textContent = message;
+                retry.style.display = 'block';
+                retry.textContent = 'Retry Location';
+                
+                // Keep disabled
+                empIdInput.disabled = true;
+                submitBtn.disabled = true;
+                submitBtn.className = 'w-full py-3 px-6 rounded-lg font-semibold text-lg bg-gray-300 text-gray-500 cursor-not-allowed';
+                btnText.textContent = 'Too far to check in';
             }
             else if (state === 'error') {
                 box.className = 'mb-6 p-6 rounded-xl border-2 border-red-300 bg-red-50';
@@ -179,6 +206,7 @@
                 title.textContent = 'Location Error';
                 msg.textContent = message || 'Could not get location';
                 retry.style.display = 'block';
+                retry.textContent = 'Enable Location';
             }
         }
         
@@ -196,38 +224,43 @@
             
             navigator.geolocation.getCurrentPosition(
                 function(position) {
+                    const userLat = position.coords.latitude;
+                    const userLon = position.coords.longitude;
+                    
                     debug('SUCCESS: Got location');
-                    debug('Lat: ' + position.coords.latitude);
-                    debug('Lon: ' + position.coords.longitude);
-                    debug('Accuracy: ' + position.coords.accuracy + 'm');
+                    debug(`User: ${userLat}, ${userLon}`);
+                    debug(`Branch: ${branchLat}, ${branchLon}`);
                     
-                    document.getElementById('lat').value = position.coords.latitude;
-                    document.getElementById('lon').value = position.coords.longitude;
-                    hasLocation = true;
+                    document.getElementById('lat').value = userLat;
+                    document.getElementById('lon').value = userLon;
                     
-                    updateUI('success');
+                    // Validate distance if branch coordinates exist
+                    if (branchLat !== null && branchLon !== null) {
+                        const distance = calculateDistance(userLat, userLon, branchLat, branchLon);
+                        debug(`Distance: ${distance.toFixed(1)}m, Fence: ${fenceRadius}m`);
+                        
+                        if (distance <= fenceRadius) {
+                            hasLocation = true;
+                            updateUI('success', `You are ${distance.toFixed(0)}m from the branch`);
+                        } else {
+                            hasLocation = false;
+                            updateUI('out_of_range', `You are ${distance.toFixed(0)}m away (Max allowed: ${fenceRadius}m)`);
+                        }
+                    } else {
+                        // If no branch coords (e.g. testing), just allow
+                        hasLocation = true;
+                        updateUI('success', 'Location captured (No geofence set)');
+                    }
                 },
                 function(error) {
                     debug('ERROR: ' + error.code + ' - ' + error.message);
-                    
                     let errorMsg = '';
                     switch(error.code) {
-                        case 1: // PERMISSION_DENIED
-                            errorMsg = 'Location permission denied. Tap "Enable Location" and allow access.';
-                            debug('User denied permission');
-                            break;
-                        case 2: // POSITION_UNAVAILABLE
-                            errorMsg = 'Location unavailable. Check your GPS settings.';
-                            debug('Position unavailable');
-                            break;
-                        case 3: // TIMEOUT
-                            errorMsg = 'Location request timed out. Please try again.';
-                            debug('Timeout');
-                            break;
-                        default:
-                            errorMsg = 'Unknown error: ' + error.message;
+                        case 1: errorMsg = 'Location permission denied.'; break;
+                        case 2: errorMsg = 'Location unavailable.'; break;
+                        case 3: errorMsg = 'Location request timed out.'; break;
+                        default: errorMsg = 'Unknown error: ' + error.message;
                     }
-                    
                     updateUI('error', errorMsg);
                 },
                 {
@@ -238,13 +271,19 @@
             );
         }
         
+        // Show debug info on triple-tap of title
+        let tapCount = 0;
+        document.querySelector('h1').addEventListener('click', function() {
+            tapCount++;
+            if (tapCount === 3) {
+                document.getElementById('debugInfo').style.display = 'block';
+                tapCount = 0;
+            }
+            setTimeout(() => { tapCount = 0; }, 1000);
+        });
+
         // AUTO-REQUEST on page load
         window.addEventListener('load', function() {
-            debug('Page loaded');
-            debug('User Agent: ' + navigator.userAgent);
-            debug('Protocol: ' + window.location.protocol);
-            debug('Hostname: ' + window.location.hostname);
-            
             // Request after 1 second
             setTimeout(requestLocation, 1000);
         });
@@ -253,8 +292,7 @@
         document.getElementById('checkinForm').addEventListener('submit', function(e) {
             if (!hasLocation) {
                 e.preventDefault();
-                alert('Please enable location access first');
-                debug('Submit blocked - no location');
+                alert('You must be within the office location to check in.');
                 return false;
             }
             
@@ -262,18 +300,13 @@
             if (!empId) {
                 e.preventDefault();
                 alert('Please enter your Employee ID');
-                debug('Submit blocked - no employee ID');
                 return false;
             }
             
-            debug('Form submitting...');
-            debug('Employee ID: ' + empId);
-            debug('Lat: ' + document.getElementById('lat').value);
-            debug('Lon: ' + document.getElementById('lon').value);
-            
             // Disable button
-            document.getElementById('submitBtn').disabled = true;
-            document.getElementById('submitBtn').className = 'w-full py-3 px-6 rounded-lg font-semibold text-lg bg-gray-400 text-white cursor-not-allowed';
+            const btn = document.getElementById('submitBtn');
+            btn.disabled = true;
+            btn.className = 'w-full py-3 px-6 rounded-lg font-semibold text-lg bg-gray-400 text-white cursor-not-allowed';
             document.getElementById('btnText').textContent = 'Processing...';
         });
     </script>

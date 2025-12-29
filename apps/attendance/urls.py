@@ -21,4 +21,5 @@ urlpatterns = [
     path('checkin/pending/', views.pending_checkin_approvals, name='pending_checkin_approvals'),
     path('checkin/<int:pk>/approve/', views.approve_checkin, name='approve_checkin'),
     path('checkin/<int:pk>/reject/', views.reject_checkin, name='reject_checkin'),
+    path('task-status/<str:task_id>/', views.get_task_status, name='get_task_status'),
 ]
