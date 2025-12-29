@@ -66,12 +66,42 @@ WSGI_APPLICATION = 'config.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django_tenants.postgresql_backend', # Requires PostgreSQL
+        'NAME': os.getenv('DB_NAME', 'hr_system'),
+        'USER': os.getenv('DB_USER'),
+        'PASSWORD': os.getenv('DB_PASSWORD'),
+        'HOST': os.getenv('DB_HOST'),
+        'PORT': os.getenv('DB_PORT'),
     }
 }
 
+DATABASE_ROUTERS = (
+    'django_tenants.routers.TenantSyncRouter',
+)
+SHARED_APPS = [
+    'django_tenants',  # Mandatory
+    'apps.organizations', # Stores the "Client" and "Domain" models
+    
+    'django.contrib.admin',
+    'django.contrib.auth',
+    'django.contrib.contenttypes',
+    'django.contrib.sessions',
+    'django.contrib.messages',
+    'django.contrib.staticfiles',
+]
 
+TENANT_APPS = [
+    'apps.accounts',
+    'apps.employees',
+    'apps.attendance',
+    'django_htmx',
+    'crispy_forms',
+    'crispy_tailwind',
+]
+# 3. Define the Tenant and Domain models
+TENANT_MODEL = 'organizations.Organization' 
+TENANT_DOMAIN_MODEL = 'organizations.Domain'
+INSTALLED_APPS = list(SHARED_APPS) + [app for app in TENANT_APPS if app not in SHARED_APPS]
 # Password validation
 # https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators
 

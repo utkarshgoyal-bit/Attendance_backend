@@ -1,6 +1,6 @@
 from django.db import models
 from django.utils.text import slugify
-
+from django_tenants.models import TenantMixin, DomainMixin
 
 class Organization(models.Model):
     name = models.CharField(max_length=200)
@@ -47,7 +47,20 @@ class Organization(models.Model):
     class Meta:
         ordering = ['name']
 
+class Organization(TenantMixin):
+    name = models.CharField(max_length=200)
+    # The 'schema_name' field is added automatically by TenantMixin
+    
+    # Keep your existing settings fields
+    geo_fence_radius = models.IntegerField(default=50)
+    require_geo_validation = models.BooleanField(default=True)
+    qr_refresh_interval = models.IntegerField(default=5)
+    
+    # IMPORTANT: Move 'is_active' and 'created_at' here if needed globally
+    auto_create_schema = True 
 
+class Domain(DomainMixin):
+    pass
 class Department(models.Model):
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE)
     name = models.CharField(max_length=100)
