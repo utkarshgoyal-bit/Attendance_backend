@@ -2,40 +2,21 @@ from django.db import models
 from django.utils.text import slugify
 from django_tenants.models import TenantMixin, DomainMixin
 
-class Organization(models.Model):
+class Organization(TenantMixin):
     name = models.CharField(max_length=200)
-    slug = models.SlugField(unique=True)
-    logo = models.ImageField(upload_to='org_logos/', blank=True, null=True)
+    slug = models.SlugField(unique=True, blank=True)
     
-    address_line1 = models.CharField(max_length=255, blank=True)
-    address_line2 = models.CharField(max_length=255, blank=True)
-    city = models.CharField(max_length=100, blank=True)
-    state = models.CharField(max_length=100, blank=True)
-    pincode = models.CharField(max_length=10, blank=True)
-    country = models.CharField(max_length=100, default='India')
-    
-    email = models.EmailField(blank=True)
-    phone = models.CharField(max_length=20, blank=True)
-    website = models.URLField(blank=True)
-    
-    gst_number = models.CharField(max_length=20, blank=True)
-    pan_number = models.CharField(max_length=20, blank=True)
-    
-    financial_year_start = models.IntegerField(default=4)
-    week_off_days = models.JSONField(default=list)
-    
-    # GEO-FENCE SETTINGS
-    geo_fence_radius = models.IntegerField(default=50)  # meters
+    # Settings fields
+    geo_fence_radius = models.IntegerField(default=50)
     require_geo_validation = models.BooleanField(default=True)
     require_approval_for_employees = models.BooleanField(default=True)
-    
-    # QR REFRESH SETTINGS - ADD THIS
-    qr_refresh_interval = models.IntegerField(default=5)  # minutes
+    qr_refresh_interval = models.IntegerField(default=5)
     
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
     
+    auto_create_schema = True 
+
     def save(self, *args, **kwargs):
         if not self.slug:
             self.slug = slugify(self.name)
@@ -47,20 +28,9 @@ class Organization(models.Model):
     class Meta:
         ordering = ['name']
 
-class Organization(TenantMixin):
-    name = models.CharField(max_length=200)
-    # The 'schema_name' field is added automatically by TenantMixin
-    
-    # Keep your existing settings fields
-    geo_fence_radius = models.IntegerField(default=50)
-    require_geo_validation = models.BooleanField(default=True)
-    qr_refresh_interval = models.IntegerField(default=5)
-    
-    # IMPORTANT: Move 'is_active' and 'created_at' here if needed globally
-    auto_create_schema = True 
-
 class Domain(DomainMixin):
     pass
+
 class Department(models.Model):
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE)
     name = models.CharField(max_length=100)
@@ -86,10 +56,10 @@ class Branch(models.Model):
     state = models.CharField(max_length=100, blank=True)
     pincode = models.CharField(max_length=10, blank=True)
     
-    # GEO-LOCATION - ADD THESE IF NOT PRESENT
+    # GEO-LOCATION
     latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
     longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
-    geo_fence_radius = models.IntegerField(default=50)  # Can override org-level radius
+    geo_fence_radius = models.IntegerField(default=50)
     
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)

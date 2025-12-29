@@ -4,10 +4,9 @@ from .models import Organization, Department, Branch, Shift
 
 @admin.register(Organization)
 class OrganizationAdmin(admin.ModelAdmin):
-    list_display = ['name', 'slug', 'city', 'is_active', 'created_at']
-    list_filter = ['is_active', 'created_at']
-    search_fields = ['name', 'email', 'phone']
-    prepopulated_fields = {'slug': ('name',)}
+    list_display = ['name', 'schema_name', 'geo_fence_radius', 'qr_refresh_interval']
+    list_filter = []
+    search_fields = ['name', 'schema_name']
 
 
 @admin.register(Department)
