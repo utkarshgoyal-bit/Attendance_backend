@@ -18,6 +18,7 @@ AUTH_USER_MODEL = 'accounts.User'
 SHARED_APPS = [
     'django_tenants',  # Mandatory
     'apps.organizations', # Stores the "Client" and "Domain" models
+    'apps.accounts',
     
     'django.contrib.admin',
     'django.contrib.auth',
@@ -29,7 +30,6 @@ SHARED_APPS = [
 ]
 
 TENANT_APPS = [
-    'apps.accounts',
     'apps.employees',
     'apps.attendance',
     'django_htmx',

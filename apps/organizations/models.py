@@ -6,12 +6,13 @@ class Organization(TenantMixin):
     name = models.CharField(max_length=200)
     slug = models.SlugField(unique=True, blank=True)
     
-    # Settings fields
+    # Required fields
     geo_fence_radius = models.IntegerField(default=50)
     require_geo_validation = models.BooleanField(default=True)
-    require_approval_for_employees = models.BooleanField(default=True)
     qr_refresh_interval = models.IntegerField(default=5)
     
+    # Additional fields
+    require_approval_for_employees = models.BooleanField(default=True)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     
@@ -46,7 +47,6 @@ class Department(models.Model):
         unique_together = ['organization', 'code']
         ordering = ['name']
 
-
 class Branch(models.Model):
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE)
     name = models.CharField(max_length=100)
@@ -71,7 +71,6 @@ class Branch(models.Model):
         unique_together = ['organization', 'code']
         ordering = ['name']
         verbose_name_plural = 'Branches'
-
 
 class Shift(models.Model):
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE)
