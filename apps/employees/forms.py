@@ -5,7 +5,7 @@ from apps.organizations.models import Organization, Department, Branch, Shift
 
 class EmployeeForm(forms.ModelForm):
     organization = forms.ModelChoiceField(
-        queryset=Organization.objects.filter(is_active=True),
+        queryset=Organization.objects.all(),
         required=True,
         widget=forms.Select(attrs={'class': 'w-full px-4 py-2 border rounded-lg'})
     )
