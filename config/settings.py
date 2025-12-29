@@ -19,6 +19,9 @@ SHARED_APPS = [
     'django_tenants',  # Mandatory
     'apps.organizations', # Stores the "Client" and "Domain" models
     'apps.accounts',
+    'django_htmx',
+    'crispy_forms',
+    'crispy_tailwind',
     
     'django.contrib.admin',
     'django.contrib.auth',
@@ -32,9 +35,6 @@ SHARED_APPS = [
 TENANT_APPS = [
     'apps.employees',
     'apps.attendance',
-    'django_htmx',
-    'crispy_forms',
-    'crispy_tailwind',
 ]
 
 INSTALLED_APPS = list(SHARED_APPS) + [app for app in TENANT_APPS if app not in SHARED_APPS]

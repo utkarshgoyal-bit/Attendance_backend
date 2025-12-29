@@ -33,7 +33,7 @@ class Domain(DomainMixin):
     pass
 
 class Department(models.Model):
-    organization = models.ForeignKey(Organization, on_delete=models.CASCADE)
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name='departments')
     name = models.CharField(max_length=100)
     code = models.CharField(max_length=20)
     description = models.TextField(blank=True)
@@ -48,7 +48,7 @@ class Department(models.Model):
         ordering = ['name']
 
 class Branch(models.Model):
-    organization = models.ForeignKey(Organization, on_delete=models.CASCADE)
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name='branches')
     name = models.CharField(max_length=100)
     code = models.CharField(max_length=20)
     address = models.TextField(blank=True)
@@ -73,7 +73,7 @@ class Branch(models.Model):
         verbose_name_plural = 'Branches'
 
 class Shift(models.Model):
-    organization = models.ForeignKey(Organization, on_delete=models.CASCADE)
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name='shifts')
     name = models.CharField(max_length=100)
     code = models.CharField(max_length=20)
     start_time = models.TimeField()
