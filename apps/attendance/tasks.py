@@ -1,8 +1,18 @@
+import logging
 from celery import shared_task
 from django.utils import timezone
 from datetime import datetime
-from asgiref.sync import async_to_sync
-from channels.layers import get_channel_layer
+
+logger = logging.getLogger(__name__)
+
+try:
+    from asgiref.sync import async_to_sync
+    from channels.layers import get_channel_layer
+    CHANNELS_AVAILABLE = True
+except ImportError:
+    CHANNELS_AVAILABLE = False
+    logger.warning("Channels or asgiref library is not installed. WebSocket notifications will be disabled.")
+
 from .models import Attendance
 from apps.employees.models import Employee
 from apps.organizations.models import Organization
@@ -56,18 +66,25 @@ def process_attendance_checkin(employee_id, organization_id, branch_id, user_lat
     )
 
     # 4. Notify via WebSockets
-    channel_layer = get_channel_layer()
-    async_to_sync(channel_layer.group_send)(
-        'attendance_updates',
-        {
-            'type': 'attendance_message',
-            'data': {
-                'employee_id': employee.employee_id,
-                'employee_name': f"{employee.first_name} {employee.last_name}",
-                'status': status.upper(),
-                'check_in_time': now.strftime("%I:%M %p")
-            }
-        }
-    )
+    if CHANNELS_AVAILABLE:
+        try:
+            channel_layer = get_channel_layer()
+            if channel_layer:
+                async_to_sync(channel_layer.group_send)(
+                    'attendance_updates',
+                    {
+                        'type': 'attendance_message',
+                        'data': {
+                            'employee_id': employee.employee_id,
+                            'employee_name': f"{employee.first_name} {employee.last_name}",
+                            'status': status.upper(),
+                            'check_in_time': now.strftime("%I:%M %p")
+                        }
+                    }
+                )
+        except Exception as e:
+            logger.error(f"Error sending WebSocket update: {e}")
+    else:
+        logger.warning("Skipping WebSocket update: channels/asgiref not available.")
     
     return {"status": "success", "employee": employee.employee_id}

@@ -16,6 +16,7 @@ ALLOWED_HOSTS = ['localhost', '127.0.0.1', '192.168.1.18']
 AUTH_USER_MODEL = 'accounts.User'
 
 SHARED_APPS = [
+    'daphne',
     'django_tenants',  # Mandatory
     'apps.organizations', # Stores the "Client" and "Domain" models
     'apps.accounts',
