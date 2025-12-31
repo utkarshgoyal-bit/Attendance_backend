@@ -54,9 +54,13 @@ def organization_delete(request, pk):
 @login_required
 @role_required(['SUPER_ADMIN', 'ORG_ADMIN'])
 def department_list(request):
-    if request.user.role == 'SUPER_ADMIN':
+    if request.user.role == 'SUPER_ADMIN' and connection.schema_name == 'public':
         departments = Department.objects.all()
     else:
+        # Explicitly ensure organization exists to prevent global leaks
+        if not request.user.organization:
+            messages.error(request, "User not linked to an organization.")
+            return redirect('dashboard')
         departments = Department.objects.filter(organization=request.user.organization)
     return render(request, 'organizations/department_list.html', {'departments': departments})
 
