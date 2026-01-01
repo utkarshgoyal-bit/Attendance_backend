@@ -1,6 +1,7 @@
 from django.db import models
 from django.utils.text import slugify
 from django_tenants.models import TenantMixin, DomainMixin
+from apps.organizations.models import Organization
 
 class Organization(TenantMixin):
     name = models.CharField(max_length=200)
@@ -46,7 +47,24 @@ class Department(models.Model):
     class Meta:
         unique_together = ['organization', 'code']
         ordering = ['name']
+class OrgSettings(models.Model):
+    organization = models.OneToOneField(Organization, on_delete=models.CASCADE, related_name='settings')
+    
+    # Attendance Configurations
+    grace_period_mins = models.PositiveIntegerField(default=15, help_text="Minutes allowed after shift start")
+    geo_fence_radius_m = models.PositiveIntegerField(default=100, help_text="Radius in meters")
+    allow_mock_location = models.BooleanField(default=False, help_text="Security: Reject GPS spoofing if False")
+    
+    # Leave & Payroll Configurations
+    sandwich_rule_enabled = models.BooleanField(default=True, help_text="Deduct weekends between leave days")
+    regularization_window_days = models.PositiveIntegerField(default=7, help_text="Hard wall for corrections")
+    
+    # Payroll Freeze
+    attendance_freeze_day = models.PositiveIntegerField(default=26, help_text="Day of month to lock attendance")
 
+    def __str__(self):
+        return f"Settings for {self.organization.name}"
+    
 class Branch(models.Model):
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name='branches')
     name = models.CharField(max_length=100)

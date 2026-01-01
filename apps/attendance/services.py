@@ -1,32 +1,32 @@
 from django.utils import timezone
 from datetime import timedelta
 from .geo_utils import calculate_haversine_distance # Existing utility
+from django.utils import timezone
+from datetime import timedelta
 
 class AttendanceService:
     @staticmethod
     def validate_checkin(user, branch, user_lat, user_lon, is_mock=False):
-        """
-        Clean Logic for Check-in Validation.
-        """
-        # 1. Security Check: Mock Location
-        if is_mock:
+        # Fetch dynamic settings for this specific organization
+        settings = user.organization.settings
+        
+        # 1. Dynamic Security Check
+        if is_mock and not settings.allow_mock_location:
             return False, "Security Alert: Mock location detected. Check-in rejected."
 
-        # 2. Geo-fencing: Haversine Calculation
-        distance = calculate_haversine_distance(
-            user_lat, user_lon, 
-            branch.latitude, branch.longitude
-        )
-        
-        if distance > branch.geo_fence_radius:
-            return False, f"Out of Range: You are {int(distance)}m away from the branch."
+        # 2. Dynamic Geo-fencing
+        # Use settings.geo_fence_radius_m instead of a hard-coded 100
+        distance = calculate_haversine_distance(user_lat, user_lon, branch.latitude, branch.longitude)
+        if distance > settings.geo_fence_radius_m:
+            return False, f"Out of Range: You are {int(distance)}m away."
 
         return True, "Valid"
 
     @staticmethod
-    def can_request_regularization(attendance_date):
+    def can_request_regularization(user, attendance_date):
         """
-        Enforce the 7-Day Hard Wall requirement.
+        Enforce the dynamic Hard Wall (e.g., 7 days or 14 days).
         """
-        limit_date = timezone.now().date() - timedelta(days=7)
+        window = user.organization.settings.regularization_window_days
+        limit_date = timezone.now().date() - timedelta(days=window)
         return attendance_date >= limit_date
