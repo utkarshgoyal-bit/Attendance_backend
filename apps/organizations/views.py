@@ -5,6 +5,10 @@ from apps.accounts.decorators import role_required
 from .models import Organization, Department, Branch, Shift
 from .forms import OrganizationForm, DepartmentForm, BranchForm, ShiftForm
 from django.db import connection
+from django.views.generic import UpdateView
+from django.urls import reverse_lazy
+from apps.accounts.decorators import role_required
+from .models import OrgSettings
 
 @login_required
 @role_required(['SUPER_ADMIN'])
@@ -105,7 +109,18 @@ def department_edit(request, pk):
         form = DepartmentForm(instance=department)
     return render(request, 'organizations/department_form.html', {'form': form, 'action': 'Edit'})
 
-
+@role_required(['SUPER_ADMIN', 'ORG_ADMIN'])
+def manage_org_settings(request):
+    # Fetch the settings for the user's specific organization
+    settings_obj = get_object_or_404(OrgSettings, organization=request.user.organization)
+    
+    if request.method == 'POST':
+        # logic to update settings_obj based on request.POST
+        # ... standard form processing ...
+        messages.success(request, "Settings updated successfully!")
+        return redirect('organizations:manage_settings')
+        
+    return render(request, 'organizations/settings_form.html', {'settings': settings_obj})
 @login_required
 @role_required(['SUPER_ADMIN', 'ORG_ADMIN'])
 def department_delete(request, pk):

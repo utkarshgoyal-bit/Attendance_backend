@@ -49,17 +49,22 @@ class Department(models.Model):
         unique_together = ['organization', 'code']
         ordering = ['name']
 class OrgSettings(models.Model):
-    organization = models.OneToOneField('Organization', on_delete=models.CASCADE, related_name='settings')
+    organization = models.OneToOneField(
+        'Organization', 
+        on_delete=models.CASCADE, 
+        related_name='settings'
+    )
     
-    # Configuration Toggles
-    sandwich_rule_enabled = models.BooleanField(default=True)
-    grace_period_minutes = models.PositiveIntegerField(default=15)
+    # Attendance Logic Toggles
+    grace_period_mins = models.PositiveIntegerField(default=15)
     geo_fence_radius_m = models.PositiveIntegerField(default=100)
-    regularization_window_days = models.PositiveIntegerField(default=7) # The "7-day wall"
+    allow_mock_location = models.BooleanField(default=False)
     
-    # Audit trail for settings changes
-    updated_at = models.DateTimeField(auto_now=True)
-    
+    # Leave & Payroll Logic Toggles
+    sandwich_rule_enabled = models.BooleanField(default=True)
+    regularization_window_days = models.PositiveIntegerField(default=7)
+    attendance_freeze_day = models.PositiveIntegerField(default=26)
+
     def __str__(self):
         return f"Settings for {self.organization.name}"
 class Branch(models.Model):
