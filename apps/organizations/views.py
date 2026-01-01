@@ -4,7 +4,7 @@ from django.contrib import messages
 from apps.accounts.decorators import role_required
 from .models import Organization, Department, Branch, Shift
 from .forms import OrganizationForm, DepartmentForm, BranchForm, ShiftForm
-
+from django.db import connection
 
 @login_required
 @role_required(['SUPER_ADMIN'])
@@ -54,16 +54,16 @@ def organization_delete(request, pk):
 @login_required
 @role_required(['SUPER_ADMIN', 'ORG_ADMIN'])
 def department_list(request):
+    # Only allow SUPER_ADMIN to see everything if they are on the PUBLIC domain
     if request.user.role == 'SUPER_ADMIN' and connection.schema_name == 'public':
         departments = Department.objects.all()
     else:
-        # Explicitly ensure organization exists to prevent global leaks
+        # STRICT ISOLATION: Ensure ORG_ADMIN only sees their own data
         if not request.user.organization:
             messages.error(request, "User not linked to an organization.")
             return redirect('dashboard')
         departments = Department.objects.filter(organization=request.user.organization)
     return render(request, 'organizations/department_list.html', {'departments': departments})
-
 
 @login_required
 @role_required(['SUPER_ADMIN', 'ORG_ADMIN'])
