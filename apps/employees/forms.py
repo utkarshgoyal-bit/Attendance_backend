@@ -11,11 +11,8 @@ class EmployeeForm(forms.ModelForm):
     
     class Meta:
         model = Employee
-        fields = [
-            'organization', 'employee_id', 'first_name', 'last_name', 
-            'date_of_birth', 'gender', 'phone', 'department', 'branch', 
-            'shift', 'designation', 'date_of_joining', 'employment_status'
-        ]
+        fields = ['organization', 'employee_id', 'designation', 'date_of_joining'] 
+    # Temporarily hide: 'first_name', 'last_name', 'phone', etc.
         widgets = {
             'employee_id': forms.TextInput(attrs={'class': 'w-full px-4 py-2 border rounded-lg'}),
             'first_name': forms.TextInput(attrs={'class': 'w-full px-4 py-2 border rounded-lg'}),
